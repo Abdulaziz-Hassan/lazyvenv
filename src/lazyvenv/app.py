@@ -1,21 +1,23 @@
 """The lazyvenv Textual application."""
 
 import asyncio
+from pathlib import Path
 from typing import ClassVar
 
 from textual import work
 from textual.app import App, ComposeResult
 from textual.binding import Binding, BindingType
-from textual.containers import Horizontal, Vertical, VerticalScroll
-from textual.screen import Screen
+from textual.containers import Horizontal, Vertical
 from textual.widgets import DataTable, Footer, Header, Label, ListItem, ListView
 
+from lazyvenv.create import UvCommandError, create_venv, list_interpreters
 from lazyvenv.packages import Package, PackageInspectionError, list_packages
+from lazyvenv.screens import CreateVenvScreen, PackageScreen
 from lazyvenv.venvs import Venv, find_venvs
 
 
 class LazyVenvApp(App):
-    """A simple TUI for Python virtual environments."""
+    """A lazygit-style TUI for Python virtual environments."""
 
     TITLE = "lazyvenv"
 
@@ -40,6 +42,7 @@ class LazyVenvApp(App):
     BINDINGS: ClassVar[list[BindingType]] = [
         Binding("q", "quit", "Quit"),
         Binding("r", "reload_venvs", "Refresh"),
+        Binding("c", "create_venv", "Create"),
     ]
 
     def __init__(self) -> None:
@@ -117,9 +120,14 @@ class LazyVenvApp(App):
             table.add_row(package.name, package.version, key=package.name)
         if packages:
             info.update(self._describe_package(packages[0]))
+        else:
+            info.update("[dim]No packages installed in this venv.[/dim]")
 
     def on_data_table_row_highlighted(self, event: DataTable.RowHighlighted) -> None:
         """Show metadata for the package under the table cursor."""
+        if event.row_key is None:  # table is empty
+            self.query_one("#package-info", Label).update("")
+            return
         package = self.packages.get(event.row_key.value)
         if package is not None:
             self.query_one("#package-info", Label).update(
@@ -128,9 +136,48 @@ class LazyVenvApp(App):
 
     def on_data_table_row_selected(self, event: DataTable.RowSelected) -> None:
         """Open the full detail screen for the selected package."""
+        if event.row_key is None:  # table is empty
+            return
         package = self.packages.get(event.row_key.value)
         if package is not None:
             self.push_screen(PackageScreen(package))
+
+    def action_create_venv(self) -> None:
+        """Open the create-venv dialog."""
+        self._open_create_dialog()
+
+    @work
+    async def _open_create_dialog(self) -> None:
+        """Fetch interpreters in the background, then open the dialog."""
+        try:
+            interpreters = await asyncio.to_thread(list_interpreters)
+        except UvCommandError as error:
+            self.notify(f"Could not list interpreters: {error}", severity="error")
+            return
+        if not interpreters:
+            self.notify(
+                "No interpreters found — install one with `uv python install`",
+                severity="warning",
+            )
+            return
+        self.push_screen(CreateVenvScreen(interpreters), self._on_create_dismissed)
+
+    def _on_create_dismissed(self, result: tuple[str, Path] | None) -> None:
+        """Kick off creation when the dialog was submitted."""
+        if result is not None:
+            name, python_path = result
+            self._create_venv(name, python_path)
+
+    @work
+    async def _create_venv(self, name: str, python_path: Path) -> None:
+        """Run `uv venv` in the background, then refresh the venv list."""
+        try:
+            await asyncio.to_thread(create_venv, name, python_path, Path.cwd())
+        except UvCommandError as error:
+            self.notify(f"Could not create venv: {error}", severity="error")
+            return
+        self.notify(f"Created virtual environment '{name}'")
+        self.load_venvs()
 
     def action_reload_venvs(self) -> None:
         """Reload the venv list and show a confirmation toast."""
@@ -169,55 +216,4 @@ class LazyVenvApp(App):
         if package.source_url:
             lines.append(f"Source:    [dim]{package.source_url}[/dim]")
         lines.extend(["", "[dim]⏎ full details[/dim]"])
-        return "\n".join(lines)
-
-
-class PackageScreen(Screen):
-    """Full-screen detail view for a single package."""
-
-    BINDINGS: ClassVar[list[BindingType]] = [
-        Binding("escape", "pop_screen", "Back"),
-        Binding("q", "pop_screen", "Back"),
-    ]
-
-    def __init__(self, package: Package) -> None:
-        super().__init__()
-        self.package = package
-
-    def compose(self) -> ComposeResult:
-        """Show the complete metadata, including every dependency."""
-        yield Header()
-        with VerticalScroll():
-            yield Label(self._full_details(), id="package-full")
-        yield Footer()
-
-    def on_mount(self) -> None:
-        """Put the package name in the header's title."""
-        self.title = f"lazyvenv — {self.package.name}"
-
-    def action_pop_screen(self) -> None:
-        """Return to the main screen."""
-        self.app.pop_screen()
-
-    def _full_details(self) -> str:
-        """Render the full metadata text."""
-        package = self.package
-        lines = [
-            f"[bold]{package.name}[/bold] {package.version}",
-            f"[dim]{package.origin} · {package.installer or 'unknown installer'}[/dim]",
-            "",
-            package.summary,
-            "",
-            f"License:   {package.license or '-'}",
-            f"Author:    {package.author or '-'}",
-            f"Homepage:  {package.home_page or '-'}",
-        ]
-        if package.source_url:
-            lines.append(f"Source:    {package.source_url}")
-        lines.append("")
-        lines.append(f"Requires ({len(package.requires)}):")
-        if package.requires:
-            lines.extend(f"  {requirement}" for requirement in package.requires)
-        else:
-            lines.append("  -")
         return "\n".join(lines)
