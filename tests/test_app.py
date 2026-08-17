@@ -166,3 +166,19 @@ async def test_create_dialog_cancel_creates_nothing(monkeypatch):
         await pilot.pause()
         assert len(app.screen_stack) == 1
         assert created == []
+
+
+async def test_empty_table_events_do_not_crash():
+    app = LazyVenvApp()
+    async with app.run_test() as pilot:
+        await pilot.pause()
+        await pilot.press("down")
+        table = app.query_one("#packages", DataTable)
+        await wait_for(lambda: table.row_count == len(FAKE_PACKAGES))
+
+        app.post_message(DataTable.RowHighlighted(table, -1, None))
+        app.post_message(DataTable.RowSelected(table, -1, None))
+        await pilot.pause()
+
+        assert str(app.query_one("#package-info", Label).render()) == ""
+        assert len(app.screen_stack) == 1  # no detail screen opened

@@ -120,9 +120,14 @@ class LazyVenvApp(App):
             table.add_row(package.name, package.version, key=package.name)
         if packages:
             info.update(self._describe_package(packages[0]))
+        else:
+            info.update("[dim]No packages installed in this venv.[/dim]")
 
     def on_data_table_row_highlighted(self, event: DataTable.RowHighlighted) -> None:
         """Show metadata for the package under the table cursor."""
+        if event.row_key is None:  # table is empty
+            self.query_one("#package-info", Label).update("")
+            return
         package = self.packages.get(event.row_key.value)
         if package is not None:
             self.query_one("#package-info", Label).update(
@@ -131,6 +136,8 @@ class LazyVenvApp(App):
 
     def on_data_table_row_selected(self, event: DataTable.RowSelected) -> None:
         """Open the full detail screen for the selected package."""
+        if event.row_key is None:  # table is empty
+            return
         package = self.packages.get(event.row_key.value)
         if package is not None:
             self.push_screen(PackageScreen(package))
