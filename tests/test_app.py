@@ -4,7 +4,7 @@ from pathlib import Path
 import pytest
 from textual.widgets import DataTable, Label, ListView
 
-from lazyvenv.app import LazyVenvApp
+from lazyvenv.app import LazyVenvApp, PackageScreen
 from lazyvenv.packages import Package
 from lazyvenv.venvs import Venv
 
@@ -14,8 +14,30 @@ FAKE_VENVS = [
 ]
 
 FAKE_PACKAGES = [
-    Package("requests", "2.32.3", "Python HTTP for Humans."),
-    Package("rich", "13.9.4", "Render rich text, tables, and more."),
+    Package(
+        "requests",
+        "2.32.3",
+        "Python HTTP for Humans.",
+        "Apache-2.0",
+        "Kenneth Reitz",
+        "https://requests.readthedocs.io",
+        ("certifi", "idna", "urllib3", "charset-normalizer"),
+        "uv",
+        "wheel",
+        "https://files.pythonhosted.org/x/requests-2.32.3-py3-none-any.whl",
+    ),
+    Package(
+        "rich",
+        "13.9.4",
+        "Render rich text, tables, and more.",
+        "MIT",
+        "Will McGugan",
+        "https://github.com/Textualize/rich",
+        ("pygments",),
+        "uv",
+        "wheel",
+        "https://files.pythonhosted.org/x/rich-13.9.4-py3-none-any.whl",
+    ),
 ]
 
 
@@ -59,3 +81,46 @@ async def test_packages_fill_the_table():
             if table.row_count == len(FAKE_PACKAGES):
                 break
         assert table.row_count == len(FAKE_PACKAGES)
+
+
+async def test_package_row_updates_info_pane():
+    app = LazyVenvApp()
+    async with app.run_test() as pilot:
+        await pilot.pause()
+        await pilot.press("down")
+        table = app.query_one("#packages", DataTable)
+        for _ in range(200):
+            await asyncio.sleep(0.01)
+            if table.row_count == len(FAKE_PACKAGES):
+                break
+        table.focus()
+        await pilot.press("down")
+        await pilot.pause()
+
+        assert table.cursor_row is not None
+        info = app.query_one("#package-info", Label)
+        assert FAKE_PACKAGES[table.cursor_row].name in str(info.render())
+
+
+async def test_enter_opens_package_screen():
+    app = LazyVenvApp()
+    async with app.run_test() as pilot:
+        await pilot.pause()
+        await pilot.press("down")
+        table = app.query_one("#packages", DataTable)
+        for _ in range(200):
+            await asyncio.sleep(0.01)
+            if table.row_count == len(FAKE_PACKAGES):
+                break
+        table.focus()
+        await pilot.press("enter")
+        await pilot.pause()
+
+        assert isinstance(app.screen, PackageScreen)
+        content = str(app.screen.query_one("#package-full", Label).render())
+        assert "requests" in content
+        assert "certifi" in content  # full dependency list, not truncated
+
+        await pilot.press("escape")
+        await pilot.pause()
+        assert len(app.screen_stack) == 1  # back to the main screen
