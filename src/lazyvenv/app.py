@@ -1,6 +1,7 @@
 """The lazyvenv Textual application."""
 
 import asyncio
+import os
 from pathlib import Path
 from typing import ClassVar
 
@@ -10,6 +11,7 @@ from textual.binding import Binding, BindingType
 from textual.containers import Horizontal, Vertical
 from textual.widgets import DataTable, Footer, Header, Label, ListItem, ListView
 
+from lazyvenv.activation import DEACTIVATE_COMMAND, activation_command
 from lazyvenv.create import UvCommandError, create_venv, list_interpreters
 from lazyvenv.packages import Package, PackageInspectionError, list_packages
 from lazyvenv.screens import CreateVenvScreen, PackageScreen
@@ -17,7 +19,7 @@ from lazyvenv.venvs import Venv, find_venvs
 
 
 class LazyVenvApp(App):
-    """A lazygit-style TUI for Python virtual environments."""
+    """A simple TUI for Python virtual environments."""
 
     TITLE = "lazyvenv"
 
@@ -43,12 +45,14 @@ class LazyVenvApp(App):
         Binding("q", "quit", "Quit"),
         Binding("r", "reload_venvs", "Refresh"),
         Binding("c", "create_venv", "Create"),
+        Binding("a", "toggle_activation", "(De)activate"),
     ]
 
     def __init__(self) -> None:
         super().__init__()
         self.venvs: list[Venv] = []
         self.packages: dict[str, Package] = {}
+        self.pending_command: str | None = None
 
     def compose(self) -> ComposeResult:
         """Build the widget tree (called once when the app starts)."""
@@ -82,13 +86,27 @@ class LazyVenvApp(App):
         venv_list = self.query_one("#venvs", ListView)
         venv_list.clear()
         for venv in self.venvs:
-            marker = "● " if venv.is_active else ""
-            label = Label(f"{marker}{venv.name}  [dim]{venv.python_version}[/dim]")
-            venv_list.append(ListItem(label))
+            venv_list.append(ListItem(Label(self._label_for(venv))))
         if not self.venvs:
             self.query_one("#details", Label).update(
                 "No virtual environments found in the current directory."
             )
+
+    def _label_for(self, venv: Venv) -> str:
+        """The list item text: status marker + name + version."""
+        if venv.is_active:
+            marker = "◆ " if self.pending_command == DEACTIVATE_COMMAND else "● "
+        elif self.pending_command == activation_command(venv):
+            marker = "◆ "
+        else:
+            marker = ""
+        return f"{marker}{venv.name}  [dim]{venv.python_version}[/dim]"
+
+    def _refresh_markers(self) -> None:
+        """Update list labels in place after the pending marker changes."""
+        venv_list = self.query_one("#venvs", ListView)
+        for item, venv in zip(venv_list.children, self.venvs, strict=True):
+            item.query_one(Label).update(self._label_for(venv))
 
     def on_list_view_highlighted(self, event: ListView.Highlighted) -> None:
         """Update the right-hand panes when the cursor moves in the list."""
@@ -141,6 +159,36 @@ class LazyVenvApp(App):
         package = self.packages.get(event.row_key.value)
         if package is not None:
             self.push_screen(PackageScreen(package))
+
+    def action_toggle_activation(self) -> None:
+        """Mark the highlighted venv for (de)activation on exit."""
+        if not os.environ.get("LAZYVENV_SHELL_CMD_FILE"):
+            self.notify(
+                "Shell integration not installed — add this to your shell config:\n"
+                'eval "$(lazyvenv init zsh)"',
+                severity="warning",
+            )
+            return
+        venv_list = self.query_one("#venvs", ListView)
+        if venv_list.index is None:
+            return
+        venv = self.venvs[venv_list.index]
+        if venv.is_active:
+            if self.pending_command == DEACTIVATE_COMMAND:
+                self.pending_command = None
+                self.notify("Deactivation cancelled")
+            else:
+                self.pending_command = DEACTIVATE_COMMAND
+                self.notify(f"'{venv.name}' will deactivate on exit")
+        else:
+            command = activation_command(venv)
+            if self.pending_command == command:
+                self.pending_command = None
+                self.notify("Activation cancelled")
+            else:
+                self.pending_command = command
+                self.notify(f"'{venv.name}' will activate on exit")
+        self._refresh_markers()
 
     def action_create_venv(self) -> None:
         """Open the create-venv dialog."""

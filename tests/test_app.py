@@ -182,3 +182,56 @@ async def test_empty_table_events_do_not_crash():
 
         assert str(app.query_one("#package-info", Label).render()) == ""
         assert len(app.screen_stack) == 1  # no detail screen opened
+
+
+async def highlight_index(pilot, venv_list, target: int) -> None:
+    """Move the venv list cursor to *target*, regardless of start state."""
+    await pilot.press("down")
+    await pilot.pause()
+    while venv_list.index != target:
+        await pilot.press("up" if venv_list.index > target else "down")
+        await pilot.pause()
+
+
+async def test_toggle_activation_marks_pending(monkeypatch):
+    monkeypatch.setenv("LAZYVENV_SHELL_CMD_FILE", "/tmp/fake-cmd-file")
+    app = LazyVenvApp()
+    async with app.run_test() as pilot:
+        await pilot.pause()
+        venv_list = app.query_one("#venvs", ListView)
+        await highlight_index(pilot, venv_list, 0)
+
+        await pilot.press("a")
+        await pilot.pause()
+        assert app.pending_command == "source /fake/.venv/bin/activate"
+
+        await pilot.press("a")  # toggles back off
+        await pilot.pause()
+        assert app.pending_command is None
+
+
+async def test_toggle_deactivation_on_the_active_venv(monkeypatch):
+    monkeypatch.setenv("LAZYVENV_SHELL_CMD_FILE", "/tmp/fake-cmd-file")
+    monkeypatch.setenv("VIRTUAL_ENV", "/fake/.venv")  # FAKE_VENVS[0] is "active"
+    app = LazyVenvApp()
+    async with app.run_test() as pilot:
+        await pilot.pause()
+        venv_list = app.query_one("#venvs", ListView)
+        await highlight_index(pilot, venv_list, 0)
+
+        await pilot.press("a")
+        await pilot.pause()
+        assert app.pending_command == "deactivate"
+
+
+async def test_toggle_activation_without_hook_warns_and_marks_nothing(monkeypatch):
+    monkeypatch.delenv("LAZYVENV_SHELL_CMD_FILE", raising=False)
+    app = LazyVenvApp()
+    async with app.run_test() as pilot:
+        await pilot.pause()
+        venv_list = app.query_one("#venvs", ListView)
+        await highlight_index(pilot, venv_list, 0)
+
+        await pilot.press("a")
+        await pilot.pause()
+        assert app.pending_command is None
