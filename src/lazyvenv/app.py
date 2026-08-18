@@ -19,6 +19,8 @@ from lazyvenv.screens import CreateVenvScreen, PackageScreen
 from lazyvenv.venvs import Venv, find_venvs
 from lazyvenv.widgets import PackagesTable, VenvList
 
+NOTIFY_TIMEOUT = 2  # seconds
+
 
 class LazyVenvApp(App):
     """A simple TUI for Python virtual environments."""
@@ -59,6 +61,10 @@ class LazyVenvApp(App):
         self.venvs: list[Venv] = []
         self.packages: dict[str, Package] = {}
         self.pending_command: str | None = None
+
+    def _flash_toast(self, message: str) -> None:
+        """Show a brief confirmation toast (default toasts linger 5s)."""
+        self.notify(message, timeout=NOTIFY_TIMEOUT)
 
     def compose(self) -> ComposeResult:
         """Build the widget tree (called once when the app starts)."""
@@ -189,18 +195,18 @@ class LazyVenvApp(App):
         if venv.is_active:
             if self.pending_command == DEACTIVATE_COMMAND:
                 self.pending_command = None
-                self.notify("Deactivation cancelled")
+                self._flash_toast("Deactivation cancelled")
             else:
                 self.pending_command = DEACTIVATE_COMMAND
-                self.notify(f"'{venv.name}' will deactivate on exit")
+                self._flash_toast(f"'{venv.name}' will deactivate on exit")
         else:
             command = activation_command(venv)
             if self.pending_command == command:
                 self.pending_command = None
-                self.notify("Activation cancelled")
+                self._flash_toast("Activation cancelled")
             else:
                 self.pending_command = command
-                self.notify(f"'{venv.name}' will activate on exit")
+                self._flash_toast(f"'{venv.name}' will activate on exit")
         self._refresh_markers()
 
     def action_focus_venvs(self) -> None:
@@ -245,13 +251,13 @@ class LazyVenvApp(App):
         except UvCommandError as error:
             self.notify(f"Could not create venv: {error}", severity="error")
             return
-        self.notify(f"Created virtual environment '{name}'")
+        self._flash_toast(f"Created virtual environment '{name}'")
         self.load_venvs()
 
     def action_reload_venvs(self) -> None:
         """Reload the venv list and show a confirmation toast."""
         self.load_venvs()
-        self.notify("Venv list refreshed")
+        self._flash_toast("Venv list refreshed")
 
     @staticmethod
     def _describe(venv: Venv) -> str:
