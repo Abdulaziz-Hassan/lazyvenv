@@ -5,6 +5,7 @@ import os
 from pathlib import Path
 from typing import ClassVar
 
+from rich.text import Text
 from textual import work
 from textual.app import App, ComposeResult
 from textual.binding import Binding, BindingType
@@ -86,15 +87,19 @@ class LazyVenvApp(App):
         """Populate the venv list once the widget tree is ready."""
         self.query_one("#packages", PackagesTable).add_columns("Name", "Version")
         self.load_venvs()
+        self.query_one("#venvs", VenvList).focus()
 
     def load_venvs(self) -> None:
-        """(Re)scan the current directory and rebuild the list."""
+        """(Re)scan the current directory, rebuild the list, and keep selection."""
         self.venvs = find_venvs()
         venv_list = self.query_one("#venvs", VenvList)
+        previous_index = venv_list.index
         venv_list.clear()
         for venv in self.venvs:
             venv_list.append(ListItem(Label(self._label_for(venv))))
-        if not self.venvs:
+        if self.venvs:
+            venv_list.index = min(previous_index or 0, len(self.venvs) - 1)
+        else:
             self.query_one("#details", Label).update(
                 "No virtual environments found in the current directory."
             )
@@ -146,6 +151,7 @@ class LazyVenvApp(App):
         if packages:
             info.update(self._describe_package(packages[0]))
         else:
+            table.add_row(Text("(no pacakges installed)", style="dim italic"), "")
             info.update("[dim]No packages installed in this venv.[/dim]")
 
     def on_data_table_row_highlighted(

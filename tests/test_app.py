@@ -265,3 +265,25 @@ async def test_h_and_l_switch_panels():
         await pilot.press("h")
         await pilot.pause()
         assert isinstance(app.focused, VenvList)
+
+
+async def test_first_venv_is_preselected_on_launch():
+    app = LazyVenvApp()
+    async with app.run_test() as pilot:
+        await pilot.pause()
+        venv_list = app.query_one("#venvs", VenvList)
+        assert venv_list.index == 0
+        assert ".venv" in str(app.query_one("#details", Label).render())
+        table = app.query_one("#packages", PackagesTable)
+        await wait_for(lambda: table.row_count == len(FAKE_PACKAGES))
+
+
+async def test_empty_venv_shows_placeholder_in_both_panes(monkeypatch):
+    monkeypatch.setattr("lazyvenv.app.list_packages", lambda venv, timeout=10: [])
+    app = LazyVenvApp()
+    async with app.run_test() as pilot:
+        await pilot.pause()
+        table = app.query_one("#packages", PackagesTable)
+        await wait_for(lambda: table.row_count == 1)
+        info = str(app.query_one("#package-info", Label).render())
+        assert "No packages installed" in info
