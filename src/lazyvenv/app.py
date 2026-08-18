@@ -49,9 +49,6 @@ class LazyVenvApp(App):
 
     BINDINGS: ClassVar[list[BindingType]] = [
         Binding("q", "quit", "Quit"),
-        Binding("r", "reload_venvs", "Refresh"),
-        Binding("c", "create_venv", "Create"),
-        Binding("a", "toggle_activation", "(De)activate"),
         Binding("h", "focus_venvs", "Venvs panel", show=False),
         Binding("l", "focus_packages", "Packages panel", show=False),
     ]

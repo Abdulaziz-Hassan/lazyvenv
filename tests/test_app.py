@@ -287,3 +287,40 @@ async def test_empty_venv_shows_placeholder_in_both_panes(monkeypatch):
         await wait_for(lambda: table.row_count == 1)
         info = str(app.query_one("#package-info", Label).render())
         assert "No packages installed" in info
+
+
+async def test_venv_actions_are_scoped_to_the_venv_panel(monkeypatch):
+    monkeypatch.setenv("LAZYVENV_SHELL_CMD_FILE", "/tmp/fake-cmd-file")
+    monkeypatch.setattr("lazyvenv.app.list_interpreters", lambda: FAKE_INTERPRETERS)
+    app = LazyVenvApp()
+    async with app.run_test() as pilot:
+        await pilot.pause()
+        app.query_one("#packages", PackagesTable).focus()
+        await pilot.press("a")
+        await pilot.press("c")
+        await pilot.pause()
+        await asyncio.sleep(0.1)
+
+        assert app.pending_command is None
+        assert len(app.screen_stack) == 1  # no create dialog opened
+
+
+async def test_detail_screen_shadows_main_screen_bindings(monkeypatch):
+    monkeypatch.setenv("LAZYVENV_SHELL_CMD_FILE", "/tmp/fake-cmd-file")
+    app = LazyVenvApp()
+    async with app.run_test() as pilot:
+        await pilot.pause()
+        table = app.query_one("#packages", PackagesTable)
+        await wait_for(lambda: table.row_count == len(FAKE_PACKAGES))
+        table.focus()
+        await pilot.press("enter")
+        await pilot.pause()
+        assert isinstance(app.screen, PackageScreen)
+
+        await pilot.press("a")
+        await pilot.pause()
+        assert app.pending_command is None
+
+        await pilot.press("q")
+        await pilot.pause()
+        assert len(app.screen_stack) == 1  # popped the screen instead of quitting

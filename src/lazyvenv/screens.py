@@ -70,6 +70,7 @@ class CreateVenvScreen(Screen[tuple[str, Path] | None]):
 
     BINDINGS: ClassVar[list[BindingType]] = [
         Binding("escape", "cancel", "Cancel"),
+        Binding("q", "cancel", "Cancel", show=False),
     ]
 
     CSS = """
