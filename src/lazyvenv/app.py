@@ -9,13 +9,14 @@ from textual import work
 from textual.app import App, ComposeResult
 from textual.binding import Binding, BindingType
 from textual.containers import Horizontal, Vertical
-from textual.widgets import DataTable, Footer, Header, Label, ListItem, ListView
+from textual.widgets import Footer, Header, Label, ListItem
 
 from lazyvenv.activation import DEACTIVATE_COMMAND, activation_command
 from lazyvenv.create import UvCommandError, create_venv, list_interpreters
 from lazyvenv.packages import Package, PackageInspectionError, list_packages
 from lazyvenv.screens import CreateVenvScreen, PackageScreen
 from lazyvenv.venvs import Venv, find_venvs
+from lazyvenv.widgets import PackagesTable, VenvList
 
 
 class LazyVenvApp(App):
@@ -46,6 +47,8 @@ class LazyVenvApp(App):
         Binding("r", "reload_venvs", "Refresh"),
         Binding("c", "create_venv", "Create"),
         Binding("a", "toggle_activation", "(De)activate"),
+        Binding("h", "focus_venvs", "Venvs panel", show=False),
+        Binding("l", "focus_packages", "Packages panel", show=False),
     ]
 
     def __init__(self) -> None:
@@ -58,14 +61,14 @@ class LazyVenvApp(App):
         """Build the widget tree (called once when the app starts)."""
         yield Header()
         with Horizontal(id="main"):
-            venv_list = ListView(id="venvs")
+            venv_list = VenvList(id="venvs")
             venv_list.border_title = "Venvs"
             yield venv_list
             with Vertical():
                 details = Label("", id="details")
                 details.border_title = "Details"
                 yield details
-                packages = DataTable(
+                packages = PackagesTable(
                     id="packages", cursor_type="row", zebra_stripes=True
                 )
                 packages.border_title = "Packages"
@@ -77,13 +80,13 @@ class LazyVenvApp(App):
 
     def on_mount(self) -> None:
         """Populate the venv list once the widget tree is ready."""
-        self.query_one("#packages", DataTable).add_columns("Name", "Version")
+        self.query_one("#packages", PackagesTable).add_columns("Name", "Version")
         self.load_venvs()
 
     def load_venvs(self) -> None:
         """(Re)scan the current directory and rebuild the list."""
         self.venvs = find_venvs()
-        venv_list = self.query_one("#venvs", ListView)
+        venv_list = self.query_one("#venvs", VenvList)
         venv_list.clear()
         for venv in self.venvs:
             venv_list.append(ListItem(Label(self._label_for(venv))))
@@ -104,11 +107,11 @@ class LazyVenvApp(App):
 
     def _refresh_markers(self) -> None:
         """Update list labels in place after the pending marker changes."""
-        venv_list = self.query_one("#venvs", ListView)
+        venv_list = self.query_one("#venvs", VenvList)
         for item, venv in zip(venv_list.children, self.venvs, strict=True):
             item.query_one(Label).update(self._label_for(venv))
 
-    def on_list_view_highlighted(self, event: ListView.Highlighted) -> None:
+    def on_list_view_highlighted(self, event: VenvList.Highlighted) -> None:
         """Update the right-hand panes when the cursor moves in the list."""
         if event.item is None:
             return
@@ -119,7 +122,7 @@ class LazyVenvApp(App):
     @work(exclusive=True)
     async def load_packages(self, venv: Venv) -> None:
         """Fetch the venv's packages in the background and fill the table."""
-        table = self.query_one("#packages", DataTable)
+        table = self.query_one("#packages", PackagesTable)
         info = self.query_one("#package-info", Label)
         table.loading = True
         info.update("")
@@ -141,7 +144,9 @@ class LazyVenvApp(App):
         else:
             info.update("[dim]No packages installed in this venv.[/dim]")
 
-    def on_data_table_row_highlighted(self, event: DataTable.RowHighlighted) -> None:
+    def on_data_table_row_highlighted(
+        self, event: PackagesTable.RowHighlighted
+    ) -> None:
         """Show metadata for the package under the table cursor."""
         if event.row_key is None:  # table is empty
             self.query_one("#package-info", Label).update("")
@@ -152,7 +157,7 @@ class LazyVenvApp(App):
                 self._describe_package(package)
             )
 
-    def on_data_table_row_selected(self, event: DataTable.RowSelected) -> None:
+    def on_data_table_row_selected(self, event: PackagesTable.RowSelected) -> None:
         """Open the full detail screen for the selected package."""
         if event.row_key is None:  # table is empty
             return
@@ -169,7 +174,7 @@ class LazyVenvApp(App):
                 severity="warning",
             )
             return
-        venv_list = self.query_one("#venvs", ListView)
+        venv_list = self.query_one("#venvs", VenvList)
         if venv_list.index is None:
             return
         venv = self.venvs[venv_list.index]
@@ -189,6 +194,14 @@ class LazyVenvApp(App):
                 self.pending_command = command
                 self.notify(f"'{venv.name}' will activate on exit")
         self._refresh_markers()
+
+    def action_focus_venvs(self) -> None:
+        """Focus the venv list (vim-style move to the left panel)."""
+        self.query_one("#venvs", VenvList).focus()
+
+    def action_focus_packages(self) -> None:
+        """Focus the packages table (vim-style move to the right panel)."""
+        self.query_one("#packages", PackagesTable).focus()
 
     def action_create_venv(self) -> None:
         """Open the create-venv dialog."""

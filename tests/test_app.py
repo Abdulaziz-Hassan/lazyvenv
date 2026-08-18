@@ -9,6 +9,7 @@ from lazyvenv.create import Interpreter
 from lazyvenv.packages import Package
 from lazyvenv.screens import CreateVenvScreen, PackageScreen
 from lazyvenv.venvs import Venv
+from lazyvenv.widgets import PackagesTable, VenvList
 
 FAKE_VENVS = [
     Venv(Path("/fake/.venv"), "3.13.6", Path("/usr/bin"), False, True),
@@ -235,3 +236,32 @@ async def test_toggle_activation_without_hook_warns_and_marks_nothing(monkeypatc
         await pilot.press("a")
         await pilot.pause()
         assert app.pending_command is None
+
+
+async def test_j_and_k_navigate_the_venv_list():
+    app = LazyVenvApp()
+    async with app.run_test() as pilot:
+        await pilot.pause()
+        venv_list = app.query_one("#venvs", VenvList)
+        venv_list.focus()
+        await highlight_index(pilot, venv_list, 0)
+
+        await pilot.press("j")
+        await pilot.pause()
+        assert venv_list.index == 1
+        await pilot.press("k")
+        await pilot.pause()
+        assert venv_list.index == 0
+
+
+async def test_h_and_l_switch_panels():
+    app = LazyVenvApp()
+    async with app.run_test() as pilot:
+        await pilot.pause()
+        await pilot.press("l")
+        await pilot.pause()
+        assert isinstance(app.focused, PackagesTable)
+
+        await pilot.press("h")
+        await pilot.pause()
+        assert isinstance(app.focused, VenvList)

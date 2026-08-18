@@ -5,12 +5,13 @@ from typing import ClassVar
 
 from textual.app import ComposeResult
 from textual.binding import Binding, BindingType
-from textual.containers import Horizontal, Vertical, VerticalScroll
+from textual.containers import Horizontal, Vertical
 from textual.screen import Screen
 from textual.widgets import Button, Footer, Header, Input, Label, Select
 
 from lazyvenv.create import Interpreter
 from lazyvenv.packages import Package
+from lazyvenv.widgets import ScrollView
 
 
 class PackageScreen(Screen):
@@ -28,7 +29,7 @@ class PackageScreen(Screen):
     def compose(self) -> ComposeResult:
         """Show the complete metadata, including every dependency."""
         yield Header()
-        with VerticalScroll():
+        with ScrollView():
             yield Label(self._full_details(), id="package-full")
         yield Footer()
 
