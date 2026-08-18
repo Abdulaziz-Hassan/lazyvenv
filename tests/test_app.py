@@ -131,7 +131,8 @@ async def test_enter_opens_package_screen():
         assert len(app.screen_stack) == 1  # back to the main screen
 
 
-async def test_create_dialog_creates_venv(monkeypatch):
+async def test_create_dialog_creates_venv(monkeypatch, tmp_path):
+    monkeypatch.chdir(tmp_path)
     created = []
     monkeypatch.setattr("lazyvenv.app.list_interpreters", lambda: FAKE_INTERPRETERS)
     monkeypatch.setattr(
@@ -148,6 +149,28 @@ async def test_create_dialog_creates_venv(monkeypatch):
         await wait_for(lambda: len(created) == 1)
         assert created == [(".venv", Path("/fake/python3.13"))]
         assert len(app.screen_stack) == 1  # dialog closed after submit
+
+
+async def test_create_dialog_rejects_existing_name(monkeypatch, tmp_path):
+    monkeypatch.chdir(tmp_path)
+    (tmp_path / ".venv").mkdir()  # a directory with the default name exists
+    created = []
+    monkeypatch.setattr("lazyvenv.app.list_interpreters", lambda: FAKE_INTERPRETERS)
+    monkeypatch.setattr(
+        "lazyvenv.app.create_venv",
+        lambda name, python_path, directory: created.append((name, python_path)),
+    )
+    app = LazyVenvApp()
+    async with app.run_test() as pilot:
+        await pilot.pause()
+        await pilot.press("c")
+        await wait_for(lambda: isinstance(app.screen, CreateVenvScreen))
+
+        await pilot.click("#create")
+        await pilot.pause()
+        await asyncio.sleep(0.1)
+        assert created == []
+        assert isinstance(app.screen, CreateVenvScreen)  # dialog stays open
 
 
 async def test_create_dialog_cancel_creates_nothing(monkeypatch):

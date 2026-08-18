@@ -130,6 +130,11 @@ class CreateVenvScreen(Screen[tuple[str, Path] | None]):
         if not name:
             self.notify("Give the venv a name", severity="warning")
             return
+        if (Path.cwd() / name).exists():
+            self.notify(
+                f"'{name}' already exists - pick another name", severity="warning"
+            )
+            return
         if python is Select.NULL:
             self.notify("Pick an interpreter", severity="warning")
             return
