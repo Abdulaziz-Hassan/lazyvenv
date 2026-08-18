@@ -32,6 +32,7 @@ class LazyVenvApp(App):
     }
 
     #details, #package-info {
+        width: 1fr;
         height: 1fr;
         min-height: 7;
         max-height: 13;
