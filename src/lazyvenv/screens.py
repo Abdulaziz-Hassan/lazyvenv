@@ -6,7 +6,7 @@ from typing import ClassVar
 from textual.app import ComposeResult
 from textual.binding import Binding, BindingType
 from textual.containers import Horizontal, Vertical
-from textual.screen import Screen
+from textual.screen import ModalScreen, Screen
 from textual.widgets import Button, Footer, Header, Input, Label, Select
 
 from lazyvenv.create import Interpreter
@@ -65,7 +65,7 @@ class PackageScreen(Screen):
         return "\n".join(lines)
 
 
-class CreateVenvScreen(Screen[tuple[str, Path] | None]):
+class CreateVenvScreen(ModalScreen[tuple[str, Path] | None]):
     """Modal dialog to create a new venv with a chosen interpreter."""
 
     BINDINGS: ClassVar[list[BindingType]] = [
