@@ -31,13 +31,17 @@ class LazyVenvApp(App):
     }
 
     #details, #package-info {
-        height: auto;
+        height: 1fr;
+        min-height: 7;
         max-height: 13;
         border: solid $secondary;
         padding: 1 2;
+        overflow-y: auto;
     }
 
     #packages {
+        height: 2fr;
+        min-height: 7;
         border: solid $secondary;
     }
     """
