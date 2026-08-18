@@ -33,6 +33,10 @@ class LazyVenvApp(App):
         border: solid $primary;
     }
 
+    #venvs ListItem {
+        padding: 1 2;
+    }
+
     #details, #package-info {
         width: 1fr;
         height: 1fr;
