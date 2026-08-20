@@ -120,9 +120,9 @@ class LazyVenvApp(App):
     def _label_for(self, venv: Venv) -> str:
         """The list item text: status marker + name + version."""
         if venv.is_active:
-            marker = "◆ " if self.pending_command == DEACTIVATE_COMMAND else "● "
+            marker = "[yellow]◆[/yellow] " if self.pending_command == DEACTIVATE_COMMAND else "[green]●[/green] "
         elif self.pending_command == activation_command(venv):
-            marker = "◆ "
+            marker = "[yellow]◆[/yellow] "
         else:
             marker = ""
         return f"{marker}{venv.name}  [dim]{venv.python_version}[/dim]"
