@@ -363,6 +363,7 @@ async def test_pane_titles_show_counts():
 def test_package_description_shows_details_hint():
     assert "full details" in LazyVenvApp._describe_package(FAKE_PACKAGES[0])
 
+
 async def test_markers_are_color_coded(monkeypatch):
     monkeypatch.setenv("VIRTUAL_ENV", "/fake/.venv")
     app = LazyVenvApp()
