@@ -107,6 +107,7 @@ class LazyVenvApp(App):
         venv_list = self.query_one("#venvs", VenvList)
         previous_index = venv_list.index
         venv_list.clear()
+        venv_list.border_title = f"Venvs ({len(self.venvs)})"
         for venv in self.venvs:
             venv_list.append(ListItem(Label(self._label_for(venv))))
         if self.venvs:
@@ -157,6 +158,7 @@ class LazyVenvApp(App):
         finally:
             table.loading = False
         self.packages = {package.name: package for package in packages}
+        table.border_title = f"Packages ({len(packages)})"
         table.clear()
         for package in packages:
             table.add_row(package.name, package.version, key=package.name)
