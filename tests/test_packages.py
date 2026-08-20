@@ -30,6 +30,7 @@ def test_list_packages_on_real_venv(tmp_path):
     pip = packages[names.index("pip")]
     assert pip.installer == "pip"
     assert pip.license
+    assert pip.author
     assert pip.requires == ()
     assert pip.origin
 
