@@ -347,3 +347,17 @@ async def test_detail_screen_shadows_main_screen_bindings(monkeypatch):
         await pilot.press("q")
         await pilot.pause()
         assert len(app.screen_stack) == 1  # popped the screen instead of quitting
+
+
+async def test_pane_titles_show_counts():
+    app = LazyVenvApp()
+    async with app.run_test() as pilot:
+        await pilot.pause()
+        assert app.query_one("#venvs", VenvList).border_title == "Venvs (2)"
+        table = app.query_one("#packages", PackagesTable)
+        await wait_for(lambda: table.row_count == len(FAKE_PACKAGES))
+        assert table.border_title == "Packages (2)"
+
+
+def test_package_description_shows_details_hint():
+    assert "full details" in LazyVenvApp._describe_package(FAKE_PACKAGES[0])
