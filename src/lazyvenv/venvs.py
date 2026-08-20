@@ -41,6 +41,11 @@ class Venv:
         active = os.environ.get("VIRTUAL_ENV")
         return active is not None and Path(active) == self.path
 
+    @property
+    def display_path(self) -> str:
+        """The venv path with the home directory collapsed to ~."""
+        return collapse_home(self.path)
+
 
 def find_venvs(directory: Path | None = None) -> list[Venv]:
     """Find virtual environments directly inside *directory* (default: cwd)."""
@@ -51,6 +56,14 @@ def find_venvs(directory: Path | None = None) -> list[Venv]:
         _venv_from_dir(candidate) for candidate in candidates if _is_venv(candidate)
     ]
     return sorted(venvs, key=lambda v: v.name)
+
+
+def collapse_home(path: Path) -> str:
+    """Return *path* as a string with the user's home directory as ~."""
+    try:
+        return f"~/{path.relative_to(Path.home())}"
+    except ValueError:
+        return str(path)
 
 
 def _is_venv(path: Path) -> bool:

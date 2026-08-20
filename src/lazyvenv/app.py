@@ -16,7 +16,7 @@ from lazyvenv.activation import DEACTIVATE_COMMAND, activation_command
 from lazyvenv.create import UvCommandError, create_venv, list_interpreters
 from lazyvenv.packages import Package, PackageInspectionError, list_packages
 from lazyvenv.screens import CreateVenvScreen, PackageScreen
-from lazyvenv.venvs import Venv, find_venvs
+from lazyvenv.venvs import Venv, collapse_home, find_venvs
 from lazyvenv.widgets import PackagesTable, VenvList
 
 NOTIFY_TIMEOUT = 2  # seconds
@@ -280,9 +280,9 @@ class LazyVenvApp(App):
         active = "yes" if venv.is_active else "no"
         return (
             f"[bold]{venv.name}[/bold]\n\n"
-            f"Path:    {venv.path}\n"
+            f"Path:    {venv.display_path}\n"
             f"Python:  {venv.python_version}\n"
-            f"Base:    {venv.home}\n"
+            f"Base:    {collapse_home(venv.home)}\n"
             f"Created: {creator}\n"
             f"Active:  {active}"
         )
@@ -291,6 +291,9 @@ class LazyVenvApp(App):
     def _describe_package(package: Package) -> str:
         """Render the package info pane text."""
         license_ = package.license.splitlines()[0] if package.license else "-"
+        author = package.author
+        if len(author) > 60:
+            author = author[:57].rstrip() + "..."
         lines = [
             (
                 f"[bold]{package.name}[/bold] {package.version}  "
@@ -299,7 +302,7 @@ class LazyVenvApp(App):
             package.summary,
             "",
             f"License:   {license_}",
-            f"Author:    {package.author or '-'}",
+            f"Author:    {author or '-'}",
             f"Homepage:  {package.home_page or '-'}",
         ]
         if package.source_url:

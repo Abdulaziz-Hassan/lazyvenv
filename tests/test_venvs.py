@@ -2,7 +2,7 @@ import platform
 from pathlib import Path
 from venv import EnvBuilder
 
-from lazyvenv.venvs import find_venvs
+from lazyvenv.venvs import collapse_home, find_venvs
 
 STDLIB_CFG = """\
 home = /usr/bin
@@ -81,3 +81,8 @@ def test_find_venvs_skips_unreadable_directories(tmp_path):
     finally:
         locked.chmod(0o755)  # restore so pytest can delete tmp_path afterwards
     assert [v.name for v in found] == [".venv"]
+
+
+def test_collapse_home():
+    assert collapse_home(Path.home() / "proj" / ".venv") == "~/proj/.venv"
+    assert collapse_home(Path("/usr/bin/python3")) == "/usr/bin/python3"

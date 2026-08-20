@@ -372,3 +372,21 @@ async def test_markers_are_color_coded(monkeypatch):
         assert "[green]●[/green]" in app._label_for(app.venvs[0])
         app.pending_command = activation_command(app.venvs[1])
         assert "[yellow]◆[/yellow]" in app._label_for(app.venvs[1])
+
+
+def test_package_description_truncates_long_authors():
+    package = Package(
+        name="x",
+        version="1.0",
+        summary="",
+        license="MIT",
+        author="A" * 100,
+        home_page="",
+        requires=(),
+        installer="",
+        origin="registry",
+        source_url="",
+    )
+    text = LazyVenvApp._describe_package(package)
+    assert "A" * 100 not in text
+    assert "A" * 57 in text

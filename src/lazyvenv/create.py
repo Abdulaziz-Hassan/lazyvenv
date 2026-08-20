@@ -6,6 +6,8 @@ import subprocess
 from dataclasses import dataclass
 from pathlib import Path
 
+from lazyvenv.venvs import collapse_home
+
 
 class UvCommandError(Exception):
     """Raised when a uv command fails."""
@@ -22,10 +24,7 @@ class Interpreter:
     @property
     def display_path(self) -> str:
         """The path with the user's home directory collapsed to ~."""
-        try:
-            return f"~/{self.path.relative_to(Path.home())}"
-        except ValueError:
-            return str(self.path)
+        return collapse_home(self.path)
 
     @property
     def label(self) -> str:
