@@ -52,6 +52,10 @@ class LazyVenvApp(App):
         min-height: 7;
         border: solid $secondary;
     }
+
+    #venvs:focus, #packages:focus {
+        border: solid $accent;
+    }
     """
 
     BINDINGS: ClassVar[list[BindingType]] = [
