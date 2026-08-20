@@ -27,7 +27,9 @@ for dist in md.distributions():
             "version": dist.version,
             "summary": meta.get("Summary") or "",
             "license": meta.get("License-Expression") or meta.get("License") or "",
-            "author": meta.get("Author") or meta.get("Maintainer") or "",
+            "author": (
+                meta.get("Author") or meta.get("Maintainer") or meta.get("Author-email") or ""
+            ),
             "home_page": home_page,
             "requires": dist.requires or [],
             "installer": (dist.read_text("INSTALLER") or "").strip() or None,
