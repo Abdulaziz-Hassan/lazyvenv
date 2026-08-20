@@ -20,15 +20,34 @@ class Interpreter:
     path: Path
 
     @property
+    def display_path(self) -> str:
+        """The path with the user's home directory collapsed to ~."""
+        try:
+            return f"~/{self.path.relative_to(Path.home())}"
+        except ValueError:
+            return str(self.path)
+
+    @property
     def label(self) -> str:
         """Human-readable text for the interpreter picker."""
-        return f"{self.implementation} {self.version} — {self.path}"
+        return f"{self.implementation} {self.version} — {self.display_path}"
 
 
 def list_interpreters() -> list[Interpreter]:
     """Return the interpreters installed on this machine, newest first."""
     result = _run_uv(["python", "list", "--only-installed"])
-    return _parse_interpreters(result.stdout)
+    return _dedupe(_parse_interpreters(result.stdout))
+
+
+def _dedupe(interpreters: list[Interpreter]) -> list[Interpreter]:
+    """Drop entries that are symlinks to the same binary, keeping the shortest path for display."""
+    by_resolved: dict[Path, Interpreter] = {}
+    for interpreter in interpreters:
+        key = interpreter.path.resolve()
+        existing = by_resolved.get(key)
+        if existing is None or len(str(interpreter.path)) < len(str(existing.path)):
+            by_resolved[key] = interpreter
+    return list(by_resolved.values())
 
 
 def create_venv(name: str, python_path: Path, directory: Path) -> None:
