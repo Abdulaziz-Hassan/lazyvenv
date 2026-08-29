@@ -16,7 +16,14 @@ from lazyvenv.activation import DEACTIVATE_COMMAND, activation_command
 from lazyvenv.create import UvCommandError, create_venv, list_interpreters
 from lazyvenv.packages import Package, PackageInspectionError, list_packages
 from lazyvenv.screens import ConfirmDeleteScreen, CreateVenvScreen, PackageScreen
-from lazyvenv.venvs import Venv, collapse_home, delete_venv, find_venvs
+from lazyvenv.venvs import (
+    Venv,
+    collapse_home,
+    delete_venv,
+    directory_size,
+    find_venvs,
+    human_size,
+)
 from lazyvenv.widgets import PackagesTable, VenvList
 
 NOTIFY_TIMEOUT = 2  # seconds
@@ -171,7 +178,16 @@ class LazyVenvApp(App):
             return
         venv = self.venvs[event.list_view.index]
         self.query_one("#details", Label).update(self._describe(venv))
+        self.load_size(venv)
         self.load_packages(venv)
+
+    @work(exclusive=True, group="sizes")
+    async def load_size(self, venv: Venv) -> None:
+        """Measure the venv's disk usage in the background, then show it."""
+        size = await asyncio.to_thread(directory_size, venv.path)
+        venv_list = self.query_one("#venvs", VenvList)
+        if venv_list.index is not None and self.venvs[venv_list.index] == venv:
+            self.query_one("#details", Label).update(self._describe(venv, size))
 
     @work(exclusive=True)
     async def load_packages(self, venv: Venv) -> None:
@@ -336,13 +352,15 @@ class LazyVenvApp(App):
         self.load_venvs()
 
     @staticmethod
-    def _describe(venv: Venv) -> str:
+    def _describe(venv: Venv, size: int | None = None) -> str:
         """Render the details pane text for a venv."""
         creator = "uv" if venv.created_by_uv else "python -m venv"
         active = "yes" if venv.is_active else "no"
+        size_text = human_size(size) if size else "…"
         return (
             f"[bold]{venv.name}[/bold]\n\n"
             f"Path:    {venv.display_path}\n"
+            f"Size:    {size_text}\n"
             f"Python:  {venv.python_version}\n"
             f"Base:    {collapse_home(venv.home)}\n"
             f"Created: {creator}\n"

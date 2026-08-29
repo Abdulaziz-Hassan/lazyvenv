@@ -370,6 +370,15 @@ async def test_details_hint_is_pinned_below_the_scrollable_body():
         assert hint.parent is not app.query_one("#package-info")
 
 
+async def test_details_show_size_after_background_load(monkeypatch):
+    monkeypatch.setattr("lazyvenv.app.directory_size", lambda path: 2 * 1024**2)
+    app = LazyVenvApp()
+    async with app.run_test() as pilot:
+        await pilot.pause()
+        details = app.query_one("#details", Label)
+        await wait_for(lambda: "2.0 MB" in str(details.render()))
+
+
 async def test_markers_are_color_coded(monkeypatch):
     monkeypatch.setenv("VIRTUAL_ENV", "/fake/.venv")
     app = LazyVenvApp()

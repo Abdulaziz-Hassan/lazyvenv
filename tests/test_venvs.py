@@ -2,7 +2,13 @@ import platform
 from pathlib import Path
 from venv import EnvBuilder
 
-from lazyvenv.venvs import collapse_home, delete_venv, find_venvs
+from lazyvenv.venvs import (
+    collapse_home,
+    delete_venv,
+    directory_size,
+    find_venvs,
+    human_size,
+)
 
 STDLIB_CFG = """\
 home = /usr/bin
@@ -95,3 +101,20 @@ def test_delete_venv_removes_the_directory(tmp_path):
     delete_venv(found)
 
     assert not venv_dir.exists()
+
+
+def test_directory_size_sums_files_without_following_symlinks(tmp_path):
+    root = tmp_path / ".venv"
+    (root / "lib").mkdir(parents=True)
+    (root / "a.bin").write_bytes(b"x" * 100)
+    (root / "lib" / "b.bin").write_bytes(b"y" * 200)
+    (root / "link").symlink_to(root / "a.bin")  # target must not be counted
+
+    assert directory_size(root) == 300
+
+
+def test_human_size_formats():
+    assert human_size(512) == "512 B"
+    assert human_size(2048) == "2.0 KB"
+    assert human_size(15 * 1024**2) == "15.0 MB"
+    assert human_size(int(1.5 * 1024**3)) == "1.5 GB"
