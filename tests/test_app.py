@@ -4,6 +4,7 @@ from pathlib import Path
 import pytest
 from textual.widgets import DataTable, Label, ListView
 
+from lazyvenv.activation import activation_command
 from lazyvenv.app import LazyVenvApp
 from lazyvenv.create import Interpreter
 from lazyvenv.packages import Package
@@ -131,7 +132,8 @@ async def test_enter_opens_package_screen():
         assert len(app.screen_stack) == 1  # back to the main screen
 
 
-async def test_create_dialog_creates_venv(monkeypatch):
+async def test_create_dialog_creates_venv(monkeypatch, tmp_path):
+    monkeypatch.chdir(tmp_path)
     created = []
     monkeypatch.setattr("lazyvenv.app.list_interpreters", lambda: FAKE_INTERPRETERS)
     monkeypatch.setattr(
@@ -148,6 +150,28 @@ async def test_create_dialog_creates_venv(monkeypatch):
         await wait_for(lambda: len(created) == 1)
         assert created == [(".venv", Path("/fake/python3.13"))]
         assert len(app.screen_stack) == 1  # dialog closed after submit
+
+
+async def test_create_dialog_rejects_existing_name(monkeypatch, tmp_path):
+    monkeypatch.chdir(tmp_path)
+    (tmp_path / ".venv").mkdir()  # a directory with the default name exists
+    created = []
+    monkeypatch.setattr("lazyvenv.app.list_interpreters", lambda: FAKE_INTERPRETERS)
+    monkeypatch.setattr(
+        "lazyvenv.app.create_venv",
+        lambda name, python_path, directory: created.append((name, python_path)),
+    )
+    app = LazyVenvApp()
+    async with app.run_test() as pilot:
+        await pilot.pause()
+        await pilot.press("c")
+        await wait_for(lambda: isinstance(app.screen, CreateVenvScreen))
+
+        await pilot.click("#create")
+        await pilot.pause()
+        await asyncio.sleep(0.1)
+        assert created == []
+        assert isinstance(app.screen, CreateVenvScreen)  # dialog stays open
 
 
 async def test_create_dialog_cancel_creates_nothing(monkeypatch):
@@ -265,3 +289,110 @@ async def test_h_and_l_switch_panels():
         await pilot.press("h")
         await pilot.pause()
         assert isinstance(app.focused, VenvList)
+
+
+async def test_first_venv_is_preselected_on_launch():
+    app = LazyVenvApp()
+    async with app.run_test() as pilot:
+        await pilot.pause()
+        venv_list = app.query_one("#venvs", VenvList)
+        assert venv_list.index == 0
+        assert ".venv" in str(app.query_one("#details", Label).render())
+        table = app.query_one("#packages", PackagesTable)
+        await wait_for(lambda: table.row_count == len(FAKE_PACKAGES))
+
+
+async def test_empty_venv_shows_placeholder_in_both_panes(monkeypatch):
+    monkeypatch.setattr("lazyvenv.app.list_packages", lambda venv, timeout=10: [])
+    app = LazyVenvApp()
+    async with app.run_test() as pilot:
+        await pilot.pause()
+        table = app.query_one("#packages", PackagesTable)
+        await wait_for(lambda: table.row_count == 1)
+        info = str(app.query_one("#package-info", Label).render())
+        assert "No packages installed" in info
+
+
+async def test_venv_actions_are_scoped_to_the_venv_panel(monkeypatch):
+    monkeypatch.setenv("LAZYVENV_SHELL_CMD_FILE", "/tmp/fake-cmd-file")
+    monkeypatch.setattr("lazyvenv.app.list_interpreters", lambda: FAKE_INTERPRETERS)
+    app = LazyVenvApp()
+    async with app.run_test() as pilot:
+        await pilot.pause()
+        app.query_one("#packages", PackagesTable).focus()
+        await pilot.press("a")
+        await pilot.press("c")
+        await pilot.pause()
+        await asyncio.sleep(0.1)
+
+        assert app.pending_command is None
+        assert len(app.screen_stack) == 1  # no create dialog opened
+
+
+async def test_detail_screen_shadows_main_screen_bindings(monkeypatch):
+    monkeypatch.setenv("LAZYVENV_SHELL_CMD_FILE", "/tmp/fake-cmd-file")
+    app = LazyVenvApp()
+    async with app.run_test() as pilot:
+        await pilot.pause()
+        table = app.query_one("#packages", PackagesTable)
+        await wait_for(lambda: table.row_count == len(FAKE_PACKAGES))
+        table.focus()
+        await pilot.press("enter")
+        await pilot.pause()
+        assert isinstance(app.screen, PackageScreen)
+
+        await pilot.press("a")
+        await pilot.pause()
+        assert app.pending_command is None
+
+        await pilot.press("q")
+        await pilot.pause()
+        assert len(app.screen_stack) == 1  # popped the screen instead of quitting
+
+
+async def test_pane_titles_show_counts():
+    app = LazyVenvApp()
+    async with app.run_test() as pilot:
+        await pilot.pause()
+        assert app.query_one("#venvs", VenvList).border_title == "Venvs (2)"
+        table = app.query_one("#packages", PackagesTable)
+        await wait_for(lambda: table.row_count == len(FAKE_PACKAGES))
+        assert table.border_title == "Packages (2)"
+
+
+async def test_details_hint_is_pinned_below_the_scrollable_body():
+    app = LazyVenvApp()
+    async with app.run_test() as pilot:
+        await pilot.pause()
+        hint = app.query_one("#package-info-hint", Label)
+        assert str(hint.render()) == "⏎ full details"
+        assert hint.parent is app.query_one("#package-info-pane")
+        assert hint.parent is not app.query_one("#package-info")
+
+
+async def test_markers_are_color_coded(monkeypatch):
+    monkeypatch.setenv("VIRTUAL_ENV", "/fake/.venv")
+    app = LazyVenvApp()
+    async with app.run_test() as pilot:
+        await pilot.pause()
+        assert "[green]●[/green]" in app._label_for(app.venvs[0])
+        app.pending_command = activation_command(app.venvs[1])
+        assert "[yellow]◆[/yellow]" in app._label_for(app.venvs[1])
+
+
+def test_package_description_truncates_long_authors():
+    package = Package(
+        name="x",
+        version="1.0",
+        summary="",
+        license="MIT",
+        author="A" * 100,
+        home_page="",
+        requires=(),
+        installer="",
+        origin="registry",
+        source_url="",
+    )
+    text = LazyVenvApp._describe_package(package)
+    assert "A" * 100 not in text
+    assert "A" * 57 in text

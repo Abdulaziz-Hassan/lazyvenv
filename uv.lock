@@ -25,6 +25,7 @@ name = "lazyvenv"
 version = "0.1.0"
 source = { editable = "." }
 dependencies = [
+    { name = "rich" },
     { name = "textual" },
 ]
 
@@ -36,7 +37,10 @@ dev = [
 ]
 
 [package.metadata]
-requires-dist = [{ name = "textual", specifier = ">=8.2.8" }]
+requires-dist = [
+    { name = "rich", specifier = ">=15.0.0" },
+    { name = "textual", specifier = ">=8.2.8" },
+]
 
 [package.metadata.requires-dev]
 dev = [

@@ -5,6 +5,7 @@ import os
 from pathlib import Path
 from typing import ClassVar
 
+from rich.text import Text
 from textual import work
 from textual.app import App, ComposeResult
 from textual.binding import Binding, BindingType
@@ -15,8 +16,10 @@ from lazyvenv.activation import DEACTIVATE_COMMAND, activation_command
 from lazyvenv.create import UvCommandError, create_venv, list_interpreters
 from lazyvenv.packages import Package, PackageInspectionError, list_packages
 from lazyvenv.screens import CreateVenvScreen, PackageScreen
-from lazyvenv.venvs import Venv, find_venvs
+from lazyvenv.venvs import Venv, collapse_home, find_venvs
 from lazyvenv.widgets import PackagesTable, VenvList
+
+NOTIFY_TIMEOUT = 2  # seconds
 
 
 class LazyVenvApp(App):
@@ -30,23 +33,54 @@ class LazyVenvApp(App):
         border: solid $primary;
     }
 
-    #details, #package-info {
-        height: auto;
-        max-height: 13;
-        border: solid $secondary;
+    #venvs ListItem {
         padding: 1 2;
     }
 
-    #packages {
+    #details {
+        width: 1fr;
+        height: 1fr;
+        min-height: 7;
+        max-height: 13;
         border: solid $secondary;
+        padding: 1 2;
+        overflow-y: auto;
+    }
+
+    #package-info-pane {
+        width: 1fr;
+        min-height: 7;
+        max-height: 13;
+        border: solid $secondary;
+    }
+
+    #package-info {
+        height: 1fr;
+        min-height: 4;
+        padding: 1 2;
+        overflow-y: auto;
+    }
+
+    #package-info-hint {
+        height: 1;
+        padding: 0 2;
+        color: $text-muted;
+        text-style: dim;
+    }
+
+    #packages {
+        height: 2fr;
+        min-height: 7;
+        border: solid $secondary;
+    }
+
+    #venvs:focus, #packages:focus {
+        border: solid $accent;
     }
     """
 
     BINDINGS: ClassVar[list[BindingType]] = [
         Binding("q", "quit", "Quit"),
-        Binding("r", "reload_venvs", "Refresh"),
-        Binding("c", "create_venv", "Create"),
-        Binding("a", "toggle_activation", "(De)activate"),
         Binding("h", "focus_venvs", "Venvs panel", show=False),
         Binding("l", "focus_packages", "Packages panel", show=False),
     ]
@@ -56,6 +90,15 @@ class LazyVenvApp(App):
         self.venvs: list[Venv] = []
         self.packages: dict[str, Package] = {}
         self.pending_command: str | None = None
+
+    def _flash_toast(self, message: str) -> None:
+        """Show a brief confirmation toast (default toasts linger 5s)."""
+        self.notify(message, timeout=NOTIFY_TIMEOUT)
+
+    def _set_package_info(self, text: str, hint: bool = True) -> None:
+        """Fill the package info pane and show/hide its fixed details hint."""
+        self.query_one("#package-info", Label).update(text)
+        self.query_one("#package-info-hint", Label).visible = hint
 
     def compose(self) -> ComposeResult:
         """Build the widget tree (called once when the app starts)."""
@@ -73,34 +116,45 @@ class LazyVenvApp(App):
                 )
                 packages.border_title = "Packages"
                 yield packages
-                package_info = Label("", id="package-info")
-                package_info.border_title = "Package Info"
-                yield package_info
+                with Vertical(id="package-info-pane") as info_pane:
+                    info_pane.border_title = "Package Info"
+                    yield Label("", id="package-info")
+                    yield Label("⏎ full details", id="package-info-hint")
         yield Footer()
 
     def on_mount(self) -> None:
         """Populate the venv list once the widget tree is ready."""
         self.query_one("#packages", PackagesTable).add_columns("Name", "Version")
         self.load_venvs()
+        self.query_one("#venvs", VenvList).focus()
 
     def load_venvs(self) -> None:
-        """(Re)scan the current directory and rebuild the list."""
+        """(Re)scan the current directory, rebuild the list, and keep selection."""
         self.venvs = find_venvs()
         venv_list = self.query_one("#venvs", VenvList)
+        previous_index = venv_list.index
         venv_list.clear()
+        venv_list.border_title = f"Venvs ({len(self.venvs)})"
         for venv in self.venvs:
             venv_list.append(ListItem(Label(self._label_for(venv))))
-        if not self.venvs:
+        if self.venvs:
+            venv_list.index = min(previous_index or 0, len(self.venvs) - 1)
+        else:
             self.query_one("#details", Label).update(
                 "No virtual environments found in the current directory."
             )
+            self._set_package_info("", hint=False)
 
     def _label_for(self, venv: Venv) -> str:
         """The list item text: status marker + name + version."""
         if venv.is_active:
-            marker = "◆ " if self.pending_command == DEACTIVATE_COMMAND else "● "
+            marker = (
+                "[yellow]◆[/yellow] "
+                if self.pending_command == DEACTIVATE_COMMAND
+                else "[green]●[/green] "
+            )
         elif self.pending_command == activation_command(venv):
-            marker = "◆ "
+            marker = "[yellow]◆[/yellow] "
         else:
             marker = ""
         return f"{marker}{venv.name}  [dim]{venv.python_version}[/dim]"
@@ -123,9 +177,8 @@ class LazyVenvApp(App):
     async def load_packages(self, venv: Venv) -> None:
         """Fetch the venv's packages in the background and fill the table."""
         table = self.query_one("#packages", PackagesTable)
-        info = self.query_one("#package-info", Label)
         table.loading = True
-        info.update("")
+        self._set_package_info("", hint=False)
         self.packages = {}
         try:
             packages = await asyncio.to_thread(list_packages, venv)
@@ -136,26 +189,28 @@ class LazyVenvApp(App):
         finally:
             table.loading = False
         self.packages = {package.name: package for package in packages}
+        table.border_title = f"Packages ({len(packages)})"
         table.clear()
         for package in packages:
             table.add_row(package.name, package.version, key=package.name)
         if packages:
-            info.update(self._describe_package(packages[0]))
+            self._set_package_info(self._describe_package(packages[0]))
         else:
-            info.update("[dim]No packages installed in this venv.[/dim]")
+            table.add_row(Text("(no packages installed)", style="dim italic"), "")
+            self._set_package_info(
+                "[dim]No packages installed in this venv.[/dim]", hint=False
+            )
 
     def on_data_table_row_highlighted(
         self, event: PackagesTable.RowHighlighted
     ) -> None:
         """Show metadata for the package under the table cursor."""
         if event.row_key is None:  # table is empty
-            self.query_one("#package-info", Label).update("")
+            self._set_package_info("", hint=False)
             return
         package = self.packages.get(event.row_key.value)
         if package is not None:
-            self.query_one("#package-info", Label).update(
-                self._describe_package(package)
-            )
+            self._set_package_info(self._describe_package(package))
 
     def on_data_table_row_selected(self, event: PackagesTable.RowSelected) -> None:
         """Open the full detail screen for the selected package."""
@@ -181,18 +236,18 @@ class LazyVenvApp(App):
         if venv.is_active:
             if self.pending_command == DEACTIVATE_COMMAND:
                 self.pending_command = None
-                self.notify("Deactivation cancelled")
+                self._flash_toast("Deactivation cancelled")
             else:
                 self.pending_command = DEACTIVATE_COMMAND
-                self.notify(f"'{venv.name}' will deactivate on exit")
+                self._flash_toast(f"'{venv.name}' will deactivate on exit")
         else:
             command = activation_command(venv)
             if self.pending_command == command:
                 self.pending_command = None
-                self.notify("Activation cancelled")
+                self._flash_toast("Activation cancelled")
             else:
                 self.pending_command = command
-                self.notify(f"'{venv.name}' will activate on exit")
+                self._flash_toast(f"'{venv.name}' will activate on exit")
         self._refresh_markers()
 
     def action_focus_venvs(self) -> None:
@@ -237,13 +292,13 @@ class LazyVenvApp(App):
         except UvCommandError as error:
             self.notify(f"Could not create venv: {error}", severity="error")
             return
-        self.notify(f"Created virtual environment '{name}'")
+        self._flash_toast(f"Created virtual environment '{name}'")
         self.load_venvs()
 
     def action_reload_venvs(self) -> None:
         """Reload the venv list and show a confirmation toast."""
         self.load_venvs()
-        self.notify("Venv list refreshed")
+        self._flash_toast("Venv list refreshed")
 
     @staticmethod
     def _describe(venv: Venv) -> str:
@@ -252,9 +307,9 @@ class LazyVenvApp(App):
         active = "yes" if venv.is_active else "no"
         return (
             f"[bold]{venv.name}[/bold]\n\n"
-            f"Path:    {venv.path}\n"
+            f"Path:    {venv.display_path}\n"
             f"Python:  {venv.python_version}\n"
-            f"Base:    {venv.home}\n"
+            f"Base:    {collapse_home(venv.home)}\n"
             f"Created: {creator}\n"
             f"Active:  {active}"
         )
@@ -263,6 +318,9 @@ class LazyVenvApp(App):
     def _describe_package(package: Package) -> str:
         """Render the package info pane text."""
         license_ = package.license.splitlines()[0] if package.license else "-"
+        author = package.author
+        if len(author) > 60:
+            author = author[:57].rstrip() + "..."
         lines = [
             (
                 f"[bold]{package.name}[/bold] {package.version}  "
@@ -271,10 +329,9 @@ class LazyVenvApp(App):
             package.summary,
             "",
             f"License:   {license_}",
-            f"Author:    {package.author or '-'}",
+            f"Author:    {author or '-'}",
             f"Homepage:  {package.home_page or '-'}",
         ]
         if package.source_url:
             lines.append(f"Source:    [dim]{package.source_url}[/dim]")
-        lines.extend(["", "[dim]⏎ full details[/dim]"])
         return "\n".join(lines)

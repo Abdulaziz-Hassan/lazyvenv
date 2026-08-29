@@ -6,7 +6,7 @@ from typing import ClassVar
 from textual.app import ComposeResult
 from textual.binding import Binding, BindingType
 from textual.containers import Horizontal, Vertical
-from textual.screen import Screen
+from textual.screen import ModalScreen, Screen
 from textual.widgets import Button, Footer, Header, Input, Label, Select
 
 from lazyvenv.create import Interpreter
@@ -65,11 +65,12 @@ class PackageScreen(Screen):
         return "\n".join(lines)
 
 
-class CreateVenvScreen(Screen[tuple[str, Path] | None]):
+class CreateVenvScreen(ModalScreen[tuple[str, Path] | None]):
     """Modal dialog to create a new venv with a chosen interpreter."""
 
     BINDINGS: ClassVar[list[BindingType]] = [
         Binding("escape", "cancel", "Cancel"),
+        Binding("q", "cancel", "Cancel", show=False),
     ]
 
     CSS = """
@@ -128,6 +129,11 @@ class CreateVenvScreen(Screen[tuple[str, Path] | None]):
         python = self.query_one("#python", Select).value
         if not name:
             self.notify("Give the venv a name", severity="warning")
+            return
+        if (Path.cwd() / name).exists():
+            self.notify(
+                f"'{name}' already exists - pick another name", severity="warning"
+            )
             return
         if python is Select.NULL:
             self.notify("Pick an interpreter", severity="warning")

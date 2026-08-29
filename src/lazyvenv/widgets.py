@@ -11,6 +11,9 @@ class VenvList(ListView):
     BINDINGS: ClassVar[list[BindingType]] = [
         Binding("j", "cursor_down", "Down", show=False),
         Binding("k", "cursor_up", "Up", show=False),
+        Binding("a", "app.toggle_activation", "(De)activate"),
+        Binding("c", "app.create_venv", "Create"),
+        Binding("r", "app.reload_venvs", "Refresh"),
     ]
 
 
