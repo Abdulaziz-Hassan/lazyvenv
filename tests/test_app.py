@@ -2,13 +2,13 @@ import asyncio
 from pathlib import Path
 
 import pytest
-from textual.widgets import DataTable, Label, ListView
+from textual.widgets import Button, DataTable, Label, ListView
 
 from lazyvenv.activation import activation_command
 from lazyvenv.app import LazyVenvApp
 from lazyvenv.create import Interpreter
 from lazyvenv.packages import Package
-from lazyvenv.screens import CreateVenvScreen, PackageScreen
+from lazyvenv.screens import ConfirmDeleteScreen, CreateVenvScreen, PackageScreen
 from lazyvenv.venvs import Venv
 from lazyvenv.widgets import PackagesTable, VenvList
 
@@ -396,3 +396,135 @@ def test_package_description_truncates_long_authors():
     text = LazyVenvApp._describe_package(package)
     assert "A" * 100 not in text
     assert "A" * 57 in text
+
+
+async def test_delete_venv_removes_it_from_the_list(monkeypatch):
+    deleted = []
+    monkeypatch.setattr("lazyvenv.app.delete_venv", lambda venv: deleted.append(venv))
+    monkeypatch.setattr(
+        "lazyvenv.app.find_venvs",
+        lambda directory=None: [v for v in FAKE_VENVS if v not in deleted],
+    )
+    app = LazyVenvApp()
+    async with app.run_test() as pilot:
+        await pilot.pause()
+        venv_list = app.query_one("#venvs", VenvList)
+        await highlight_index(pilot, venv_list, 1)
+
+        await pilot.press("d")
+        await wait_for(lambda: isinstance(app.screen, ConfirmDeleteScreen))
+        assert app.screen.venv == FAKE_VENVS[1]
+
+        await pilot.click("#delete")
+        await wait_for(lambda: len(deleted) == 1)
+        await wait_for(lambda: len(venv_list.children) == 1)
+        assert deleted == [FAKE_VENVS[1]]
+
+
+async def test_delete_dialog_focuses_cancel_by_default(monkeypatch):
+    deleted = []
+    monkeypatch.setattr("lazyvenv.app.delete_venv", lambda venv: deleted.append(venv))
+    app = LazyVenvApp()
+    async with app.run_test() as pilot:
+        await pilot.pause()
+        venv_list = app.query_one("#venvs", VenvList)
+        await highlight_index(pilot, venv_list, 1)
+
+        await pilot.press("d")
+        await wait_for(lambda: isinstance(app.screen, ConfirmDeleteScreen))
+        assert app.screen.focused is app.screen.query_one("#cancel", Button)
+
+        await pilot.press("enter")  # hits Cancel, not Delete
+        await pilot.pause()
+        assert len(app.screen_stack) == 1
+        assert deleted == []
+
+
+async def test_focused_cancel_button_uses_subtle_style():
+    app = LazyVenvApp()
+    async with app.run_test() as pilot:
+        await pilot.pause()
+        venv_list = app.query_one("#venvs", VenvList)
+        await highlight_index(pilot, venv_list, 1)
+
+        await pilot.press("d")
+        await wait_for(lambda: isinstance(app.screen, ConfirmDeleteScreen))
+        await pilot.pause()
+
+        cancel = app.screen.query_one("#cancel", Button)
+        assert "focus" in cancel.pseudo_classes
+        assert "reverse" not in str(cancel.styles.text_style)
+        assert "underline" not in str(cancel.styles.text_style)
+
+
+async def test_hover_does_not_change_button_edges():
+    app = LazyVenvApp()
+    async with app.run_test() as pilot:
+        await pilot.pause()
+        venv_list = app.query_one("#venvs", VenvList)
+        await highlight_index(pilot, venv_list, 1)
+
+        await pilot.press("d")
+        await wait_for(lambda: isinstance(app.screen, ConfirmDeleteScreen))
+        cancel = app.screen.query_one("#cancel", Button)
+        edge_before = cancel.styles.border_top
+
+        await pilot.hover("#cancel")
+        await pilot.pause()
+
+        assert cancel.styles.border_top == edge_before
+
+
+async def test_delete_dialog_cancel_deletes_nothing(monkeypatch):
+    deleted = []
+    monkeypatch.setattr("lazyvenv.app.delete_venv", lambda venv: deleted.append(venv))
+    app = LazyVenvApp()
+    async with app.run_test() as pilot:
+        await pilot.pause()
+        venv_list = app.query_one("#venvs", VenvList)
+        await highlight_index(pilot, venv_list, 1)
+
+        await pilot.press("d")
+        await wait_for(lambda: isinstance(app.screen, ConfirmDeleteScreen))
+        await pilot.press("escape")
+        await pilot.pause()
+
+        assert len(app.screen_stack) == 1
+        assert deleted == []
+
+
+async def test_delete_refuses_the_active_venv(monkeypatch):
+    monkeypatch.setenv("VIRTUAL_ENV", "/fake/.venv")
+    deleted = []
+    monkeypatch.setattr("lazyvenv.app.delete_venv", lambda venv: deleted.append(venv))
+    app = LazyVenvApp()
+    async with app.run_test() as pilot:
+        await pilot.pause()
+        venv_list = app.query_one("#venvs", VenvList)
+        await highlight_index(pilot, venv_list, 0)
+
+        await pilot.press("d")
+        await pilot.pause()
+        await asyncio.sleep(0.1)
+
+        assert len(app.screen_stack) == 1  # no dialog opened
+        assert deleted == []
+
+
+async def test_delete_clears_a_pending_activation_marker(monkeypatch):
+    monkeypatch.setenv("LAZYVENV_SHELL_CMD_FILE", "/tmp/fake-cmd-file")
+    monkeypatch.setattr("lazyvenv.app.delete_venv", lambda venv: None)
+    app = LazyVenvApp()
+    async with app.run_test() as pilot:
+        await pilot.pause()
+        venv_list = app.query_one("#venvs", VenvList)
+        await highlight_index(pilot, venv_list, 1)
+
+        await pilot.press("a")  # mark 'env' for activation
+        await pilot.pause()
+        assert app.pending_command == "source /fake/env/bin/activate"
+
+        await pilot.press("d")
+        await wait_for(lambda: isinstance(app.screen, ConfirmDeleteScreen))
+        await pilot.click("#delete")
+        await wait_for(lambda: app.pending_command is None)

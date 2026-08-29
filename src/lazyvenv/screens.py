@@ -1,4 +1,4 @@
-"""Screens for lazyvenv: the package detail view and the create dialog."""
+"""Screens for lazyvenv: the package detail view and the modal dialogs."""
 
 from pathlib import Path
 from typing import ClassVar
@@ -11,6 +11,7 @@ from textual.widgets import Button, Footer, Header, Input, Label, Select
 
 from lazyvenv.create import Interpreter
 from lazyvenv.packages import Package
+from lazyvenv.venvs import Venv
 from lazyvenv.widgets import ScrollView
 
 
@@ -98,6 +99,16 @@ class CreateVenvScreen(ModalScreen[tuple[str, Path] | None]):
     #buttons Button {
         margin-right: 2;
     }
+
+    #dialog #cancel:focus {
+        text-style: bold;
+        background: $boost;
+    }
+
+    #dialog #cancel:hover {
+        background: $surface-lighten-2;
+        border-top: tall $surface-lighten-1;
+    }
     """
 
     def __init__(self, interpreters: list[Interpreter]) -> None:
@@ -143,3 +154,76 @@ class CreateVenvScreen(ModalScreen[tuple[str, Path] | None]):
     def action_cancel(self) -> None:
         """Close the dialog without creating anything."""
         self.dismiss(None)
+
+
+class ConfirmDeleteScreen(ModalScreen[bool]):
+    """Modal dialog asking the user to confirm deletion of a venv."""
+
+    BINDINGS: ClassVar[list[BindingType]] = [
+        Binding("escape", "cancel", "Cancel"),
+        Binding("q", "cancel", "Cancel", show=False),
+    ]
+
+    CSS = """
+    ConfirmDeleteScreen {
+        align: center middle;
+    }
+
+    #delete-dialog {
+        width: 64;
+        height: auto;
+        border: solid $error;
+        background: $surface;
+        padding: 1 2;
+    }
+
+    #delete-dialog .venv-path {
+        margin-top: 1;
+        color: $text-muted;
+    }
+
+    #delete-dialog #buttons {
+        height: auto;
+        margin-top: 1;
+    }
+
+    #delete-dialog Button {
+        margin-right: 2;
+    }
+
+    #delete-dialog #cancel:focus {
+        text-style: bold;
+        background: $boost;
+    }
+
+    #delete-dialog #cancel:hover {
+        background: $surface-lighten-2;
+        border-top: tall $surface-lighten-1;
+    }
+    """
+
+    def __init__(self, venv: Venv) -> None:
+        super().__init__()
+        self.venv = venv
+
+    def compose(self) -> ComposeResult:
+        """Ask for confirmation, showing exactly what will be deleted."""
+        with Vertical(id="delete-dialog"):
+            yield Label(f"[bold]Delete '{self.venv.name}'?[/bold]")
+            yield Label(self.venv.display_path, classes="venv-path")
+            yield Label("[dim]This cannot be undone.[/dim]")
+            with Horizontal(id="buttons"):
+                yield Button("Delete", variant="error", id="delete")
+                yield Button("Cancel", id="cancel")
+
+    def on_mount(self) -> None:
+        """Focus Cancel: confirming a deletion should be a deliberate move."""
+        self.query_one("#cancel", Button).focus()
+
+    def on_button_pressed(self, event: Button.Pressed) -> None:
+        """Dismiss with True only when the Delete button was pressed."""
+        self.dismiss(event.button.id == "delete")
+
+    def action_cancel(self) -> None:
+        """Close the dialog without deleting."""
+        self.dismiss(False)

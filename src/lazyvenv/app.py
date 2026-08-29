@@ -15,8 +15,8 @@ from textual.widgets import Footer, Header, Label, ListItem
 from lazyvenv.activation import DEACTIVATE_COMMAND, activation_command
 from lazyvenv.create import UvCommandError, create_venv, list_interpreters
 from lazyvenv.packages import Package, PackageInspectionError, list_packages
-from lazyvenv.screens import CreateVenvScreen, PackageScreen
-from lazyvenv.venvs import Venv, collapse_home, find_venvs
+from lazyvenv.screens import ConfirmDeleteScreen, CreateVenvScreen, PackageScreen
+from lazyvenv.venvs import Venv, collapse_home, delete_venv, find_venvs
 from lazyvenv.widgets import PackagesTable, VenvList
 
 NOTIFY_TIMEOUT = 2  # seconds
@@ -299,6 +299,41 @@ class LazyVenvApp(App):
         """Reload the venv list and show a confirmation toast."""
         self.load_venvs()
         self._flash_toast("Venv list refreshed")
+
+    def action_delete_venv(self) -> None:
+        """Ask for confirmation, then delete the highlighted venv."""
+        venv_list = self.query_one("#venvs", VenvList)
+        if venv_list.index is None:
+            return
+        venv = self.venvs[venv_list.index]
+        if venv.is_active:
+            self.notify(
+                f"'{venv.name}' is active - deactivate it first",
+                severity="warning",
+            )
+            return
+        self.push_screen(
+            ConfirmDeleteScreen(venv),
+            lambda confirmed: self._on_delete_dismissed(venv, confirmed),
+        )
+
+    def _on_delete_dismissed(self, venv: Venv, confirmed: bool) -> None:
+        """Kick off deletion when the dialog was confirmed."""
+        if confirmed:
+            self._delete_venv(venv)
+
+    @work
+    async def _delete_venv(self, venv: Venv) -> None:
+        """Delete the venv directory in the background, then refresh the list."""
+        try:
+            await asyncio.to_thread(delete_venv, venv)
+        except OSError as error:
+            self.notify(f"Could not delete '{venv.name}': {error}", severity="error")
+            return
+        if self.pending_command == activation_command(venv):
+            self.pending_command = None
+        self._flash_toast(f"Deleted virtual environment '{venv.name}'")
+        self.load_venvs()
 
     @staticmethod
     def _describe(venv: Venv) -> str:
