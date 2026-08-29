@@ -9,6 +9,7 @@ created the environment.
 from __future__ import annotations
 
 import os
+import shutil
 from dataclasses import dataclass
 from pathlib import Path
 
@@ -64,6 +65,11 @@ def collapse_home(path: Path) -> str:
         return f"~/{path.relative_to(Path.home())}"
     except ValueError:
         return str(path)
+
+
+def delete_venv(venv: Venv) -> None:
+    """Remove *venv*'s directory tree from disk."""
+    shutil.rmtree(venv.path)
 
 
 def _is_venv(path: Path) -> bool:

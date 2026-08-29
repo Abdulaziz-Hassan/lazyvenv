@@ -13,6 +13,7 @@ class VenvList(ListView):
         Binding("k", "cursor_up", "Up", show=False),
         Binding("a", "app.toggle_activation", "(De)activate"),
         Binding("c", "app.create_venv", "Create"),
+        Binding("d", "app.delete_venv", "Delete"),
         Binding("r", "app.reload_venvs", "Refresh"),
     ]
 

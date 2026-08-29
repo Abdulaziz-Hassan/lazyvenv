@@ -2,7 +2,7 @@ import platform
 from pathlib import Path
 from venv import EnvBuilder
 
-from lazyvenv.venvs import collapse_home, find_venvs
+from lazyvenv.venvs import collapse_home, delete_venv, find_venvs
 
 STDLIB_CFG = """\
 home = /usr/bin
@@ -86,3 +86,12 @@ def test_find_venvs_skips_unreadable_directories(tmp_path):
 def test_collapse_home():
     assert collapse_home(Path.home() / "proj" / ".venv") == "~/proj/.venv"
     assert collapse_home(Path("/usr/bin/python3")) == "/usr/bin/python3"
+
+
+def test_delete_venv_removes_the_directory(tmp_path):
+    venv_dir = make_venv(tmp_path, ".venv")
+    (found,) = find_venvs(tmp_path)
+
+    delete_venv(found)
+
+    assert not venv_dir.exists()
