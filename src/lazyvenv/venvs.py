@@ -72,6 +72,38 @@ def delete_venv(venv: Venv) -> None:
     shutil.rmtree(venv.path)
 
 
+def directory_size(path: Path) -> int:
+    """Total size in bytes of *path*'s own files (symlinks are not followed)."""
+    total = 0
+    stack = [path]
+    while stack:
+        try:
+            with os.scandir(stack.pop()) as entries:
+                for entry in entries:
+                    try:
+                        if entry.is_symlink():
+                            continue  # don't count targets living outside the venv
+                        if entry.is_dir():
+                            stack.append(Path(entry.path))
+                        elif entry.is_file():
+                            total += entry.stat().st_size
+                    except OSError:
+                        continue
+        except OSError:
+            continue
+    return total
+
+
+def human_size(num_bytes: int) -> str:
+    """Format *num_bytes* for display, e.g. '843 B' or '12.4 MB'."""
+    size = float(num_bytes)
+    for unit in ("B", "KB", "MB", "GB"):
+        if size < 1024:
+            return f"{size:.0f} {unit}" if unit == "B" else f"{size:.1f} {unit}"
+        size /= 1024
+    return f"{size:.1f} TB"
+
+
 def _is_venv(path: Path) -> bool:
     """Check whether *path* is a venv, tolerating unreadable directories."""
     try:
