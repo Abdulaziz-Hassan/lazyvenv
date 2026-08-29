@@ -360,8 +360,14 @@ async def test_pane_titles_show_counts():
         assert table.border_title == "Packages (2)"
 
 
-def test_package_description_shows_details_hint():
-    assert "full details" in LazyVenvApp._describe_package(FAKE_PACKAGES[0])
+async def test_details_hint_is_pinned_below_the_scrollable_body():
+    app = LazyVenvApp()
+    async with app.run_test() as pilot:
+        await pilot.pause()
+        hint = app.query_one("#package-info-hint", Label)
+        assert str(hint.render()) == "⏎ full details"
+        assert hint.parent is app.query_one("#package-info-pane")
+        assert hint.parent is not app.query_one("#package-info")
 
 
 async def test_markers_are_color_coded(monkeypatch):

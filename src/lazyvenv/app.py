@@ -37,7 +37,7 @@ class LazyVenvApp(App):
         padding: 1 2;
     }
 
-    #details, #package-info {
+    #details {
         width: 1fr;
         height: 1fr;
         min-height: 7;
@@ -45,6 +45,27 @@ class LazyVenvApp(App):
         border: solid $secondary;
         padding: 1 2;
         overflow-y: auto;
+    }
+
+    #package-info-pane {
+        width: 1fr;
+        min-height: 7;
+        max-height: 13;
+        border: solid $secondary;
+    }
+
+    #package-info {
+        height: 1fr;
+        min-height: 4;
+        padding: 1 2;
+        overflow-y: auto;
+    }
+
+    #package-info-hint {
+        height: 1;
+        padding: 0 2;
+        color: $text-muted;
+        text-style: dim;
     }
 
     #packages {
@@ -74,6 +95,11 @@ class LazyVenvApp(App):
         """Show a brief confirmation toast (default toasts linger 5s)."""
         self.notify(message, timeout=NOTIFY_TIMEOUT)
 
+    def _set_package_info(self, text: str, hint: bool = True) -> None:
+        """Fill the package info pane and show/hide its fixed details hint."""
+        self.query_one("#package-info", Label).update(text)
+        self.query_one("#package-info-hint", Label).visible = hint
+
     def compose(self) -> ComposeResult:
         """Build the widget tree (called once when the app starts)."""
         yield Header()
@@ -90,9 +116,10 @@ class LazyVenvApp(App):
                 )
                 packages.border_title = "Packages"
                 yield packages
-                package_info = Label("", id="package-info")
-                package_info.border_title = "Package Info"
-                yield package_info
+                with Vertical(id="package-info-pane") as info_pane:
+                    info_pane.border_title = "Package Info"
+                    yield Label("", id="package-info")
+                    yield Label("⏎ full details", id="package-info-hint")
         yield Footer()
 
     def on_mount(self) -> None:
@@ -116,6 +143,7 @@ class LazyVenvApp(App):
             self.query_one("#details", Label).update(
                 "No virtual environments found in the current directory."
             )
+            self._set_package_info("", hint=False)
 
     def _label_for(self, venv: Venv) -> str:
         """The list item text: status marker + name + version."""
@@ -149,9 +177,8 @@ class LazyVenvApp(App):
     async def load_packages(self, venv: Venv) -> None:
         """Fetch the venv's packages in the background and fill the table."""
         table = self.query_one("#packages", PackagesTable)
-        info = self.query_one("#package-info", Label)
         table.loading = True
-        info.update("")
+        self._set_package_info("", hint=False)
         self.packages = {}
         try:
             packages = await asyncio.to_thread(list_packages, venv)
@@ -167,23 +194,23 @@ class LazyVenvApp(App):
         for package in packages:
             table.add_row(package.name, package.version, key=package.name)
         if packages:
-            info.update(self._describe_package(packages[0]))
+            self._set_package_info(self._describe_package(packages[0]))
         else:
-            table.add_row(Text("(no pacakges installed)", style="dim italic"), "")
-            info.update("[dim]No packages installed in this venv.[/dim]")
+            table.add_row(Text("(no packages installed)", style="dim italic"), "")
+            self._set_package_info(
+                "[dim]No packages installed in this venv.[/dim]", hint=False
+            )
 
     def on_data_table_row_highlighted(
         self, event: PackagesTable.RowHighlighted
     ) -> None:
         """Show metadata for the package under the table cursor."""
         if event.row_key is None:  # table is empty
-            self.query_one("#package-info", Label).update("")
+            self._set_package_info("", hint=False)
             return
         package = self.packages.get(event.row_key.value)
         if package is not None:
-            self.query_one("#package-info", Label).update(
-                self._describe_package(package)
-            )
+            self._set_package_info(self._describe_package(package))
 
     def on_data_table_row_selected(self, event: PackagesTable.RowSelected) -> None:
         """Open the full detail screen for the selected package."""
@@ -307,5 +334,4 @@ class LazyVenvApp(App):
         ]
         if package.source_url:
             lines.append(f"Source:    [dim]{package.source_url}[/dim]")
-        lines.extend(["", "[dim]⏎ full details[/dim]"])
         return "\n".join(lines)
