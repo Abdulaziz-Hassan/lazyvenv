@@ -10,7 +10,7 @@ from textual import work
 from textual.app import App, ComposeResult
 from textual.binding import Binding, BindingType
 from textual.containers import Horizontal, Vertical
-from textual.widgets import Footer, Header, Label, ListItem
+from textual.widgets import Footer, Header, Input, Label, ListItem
 
 from lazyvenv.activation import DEACTIVATE_COMMAND, activation_command
 from lazyvenv.create import UvCommandError, create_venv, list_interpreters
@@ -24,7 +24,7 @@ from lazyvenv.venvs import (
     find_venvs,
     human_size,
 )
-from lazyvenv.widgets import PackagesTable, VenvList
+from lazyvenv.widgets import FilterInput, PackagesTable, VenvList
 
 NOTIFY_TIMEOUT = 2  # seconds
 
@@ -81,6 +81,11 @@ class LazyVenvApp(App):
         border: solid $secondary;
     }
 
+    #package-filter {
+        display: none;
+        margin-bottom: 1;
+    }
+
     #venvs:focus, #packages:focus {
         border: solid $accent;
     }
@@ -118,6 +123,7 @@ class LazyVenvApp(App):
                 details = Label("", id="details")
                 details.border_title = "Details"
                 yield details
+                yield FilterInput(placeholder="Filter packages…", id="package-filter")
                 packages = PackagesTable(
                     id="packages", cursor_type="row", zebra_stripes=True
                 )
@@ -205,12 +211,33 @@ class LazyVenvApp(App):
         finally:
             table.loading = False
         self.packages = {package.name: package for package in packages}
-        table.border_title = f"Packages ({len(packages)})"
+        filter_input = self.query_one("#package-filter", FilterInput)
+        filter_input.value = ""
+        filter_input.display = False
+        self._apply_filter("")
+
+    def _apply_filter(self, query: str) -> None:
+        """Rebuild the packages table, keeping only rows matching *query*."""
+        table = self.query_one("#packages", PackagesTable)
+        matches = [
+            package
+            for package in self.packages.values()
+            if query.lower() in package.name.lower()
+        ]
+        if query:
+            table.border_title = f"Packages ({len(matches)}/{len(self.packages)})"
+        else:
+            table.border_title = f"Packages ({len(self.packages)})"
         table.clear()
-        for package in packages:
-            table.add_row(package.name, package.version, key=package.name)
-        if packages:
-            self._set_package_info(self._describe_package(packages[0]))
+        if matches:
+            for package in matches:
+                table.add_row(package.name, package.version, key=package.name)
+            self._set_package_info(self._describe_package(matches[0]))
+        elif self.packages:
+            table.add_row(
+                Text(f"(no packages match '{query}')", style="dim italic"), ""
+            )
+            self._set_package_info("", hint=False)
         else:
             table.add_row(Text("(no packages installed)", style="dim italic"), "")
             self._set_package_info(
@@ -273,6 +300,30 @@ class LazyVenvApp(App):
     def action_focus_packages(self) -> None:
         """Focus the packages table (vim-style move to the right panel)."""
         self.query_one("#packages", PackagesTable).focus()
+
+    def action_filter_packages(self) -> None:
+        """Show and focus the package filter input."""
+        filter_input = self.query_one("#package-filter", FilterInput)
+        filter_input.display = True
+        filter_input.focus()
+
+    def action_clear_filter(self) -> None:
+        """Clear the package filter, hide the input, refocus the table."""
+        filter_input = self.query_one("#package-filter", FilterInput)
+        filter_input.value = ""
+        filter_input.display = False
+        self._apply_filter("")
+        self.query_one("#packages", PackagesTable).focus()
+
+    def on_input_changed(self, event: Input.Changed) -> None:
+        """Filter the packages table as the query is typed."""
+        if event.input.id == "package-filter":
+            self._apply_filter(event.value)
+
+    def on_input_submitted(self, event: Input.Submitted) -> None:
+        """Keep the filter and return focus to the packages table."""
+        if event.input.id == "package-filter":
+            self.query_one("#packages", PackagesTable).focus()
 
     def action_create_venv(self) -> None:
         """Open the create-venv dialog."""
