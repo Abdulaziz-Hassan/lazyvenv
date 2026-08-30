@@ -10,7 +10,7 @@ from lazyvenv.create import Interpreter
 from lazyvenv.packages import Package
 from lazyvenv.screens import ConfirmDeleteScreen, CreateVenvScreen, PackageScreen
 from lazyvenv.venvs import Venv
-from lazyvenv.widgets import PackagesTable, VenvList
+from lazyvenv.widgets import FilterInput, PackagesTable, VenvList
 
 FAKE_VENVS = [
     Venv(Path("/fake/.venv"), "3.13.6", Path("/usr/bin"), False, True),
@@ -368,6 +368,94 @@ async def test_details_hint_is_pinned_below_the_scrollable_body():
         assert str(hint.render()) == "⏎ full details"
         assert hint.parent is app.query_one("#package-info-pane")
         assert hint.parent is not app.query_one("#package-info")
+
+
+async def open_filter(pilot, app) -> FilterInput:
+    """Open the package filter from the packages table and return the input."""
+    table = app.query_one("#packages", PackagesTable)
+    await wait_for(lambda: table.row_count == len(FAKE_PACKAGES))
+    table.focus()
+    await pilot.press("/")
+    await pilot.pause()
+    return app.query_one("#package-filter", FilterInput)
+
+
+async def test_filter_narrows_the_packages_table():
+    app = LazyVenvApp()
+    async with app.run_test() as pilot:
+        await pilot.pause()
+        filter_input = await open_filter(pilot, app)
+        assert filter_input.display
+        assert app.focused is filter_input
+
+        await pilot.press(*"req")
+        table = app.query_one("#packages", PackagesTable)
+        await wait_for(lambda: table.row_count == 1)
+        assert table.border_title == "Packages (1/2)"
+        info = str(app.query_one("#package-info", Label).render())
+        assert "requests" in info
+
+
+async def test_filter_input_does_not_trigger_app_bindings():
+    app = LazyVenvApp()
+    async with app.run_test() as pilot:
+        await pilot.pause()
+        filter_input = await open_filter(pilot, app)
+
+        await pilot.press("h")  # would focus the venv panel if it leaked
+        await pilot.press("q")  # would quit the app if it leaked
+        await pilot.pause()
+
+        assert filter_input.value == "hq"
+        assert app.focused is filter_input
+
+
+async def test_filter_escape_clears_and_closes():
+    app = LazyVenvApp()
+    async with app.run_test() as pilot:
+        await pilot.pause()
+        filter_input = await open_filter(pilot, app)
+        await pilot.press(*"req")
+        table = app.query_one("#packages", PackagesTable)
+        await wait_for(lambda: table.row_count == 1)
+
+        await pilot.press("escape")
+        await pilot.pause()
+        assert not filter_input.display
+        assert filter_input.value == ""
+        assert table.row_count == len(FAKE_PACKAGES)
+        assert app.focused is table
+
+
+async def test_filter_with_no_matches_shows_placeholder():
+    app = LazyVenvApp()
+    async with app.run_test() as pilot:
+        await pilot.pause()
+        await open_filter(pilot, app)
+        await pilot.press(*"zzz")
+
+        table = app.query_one("#packages", PackagesTable)
+        await wait_for(lambda: table.row_count == 1)  # the placeholder row
+        assert table.border_title == "Packages (0/2)"
+        info = str(app.query_one("#package-info", Label).render())
+        assert "requests" not in info and "rich" not in info
+
+
+async def test_switching_venvs_resets_the_filter():
+    app = LazyVenvApp()
+    async with app.run_test() as pilot:
+        await pilot.pause()
+        filter_input = await open_filter(pilot, app)
+        await pilot.press(*"req")
+        table = app.query_one("#packages", PackagesTable)
+        await wait_for(lambda: table.row_count == 1)
+
+        app.query_one("#venvs", VenvList).focus()
+        await pilot.press("down")  # move to the other venv
+        await wait_for(lambda: table.row_count == len(FAKE_PACKAGES))
+        assert not filter_input.display
+        assert filter_input.value == ""
+        assert table.border_title == "Packages (2)"
 
 
 async def test_details_show_size_after_background_load(monkeypatch):

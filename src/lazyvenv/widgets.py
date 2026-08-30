@@ -2,7 +2,7 @@ from typing import ClassVar
 
 from textual.binding import Binding, BindingType
 from textual.containers import VerticalScroll
-from textual.widgets import DataTable, ListView
+from textual.widgets import DataTable, Input, ListView
 
 
 class VenvList(ListView):
@@ -19,11 +19,21 @@ class VenvList(ListView):
 
 
 class PackagesTable(DataTable):
-    """The packages table — adds j/k navigation."""
+    """The packages table — adds j/k navigation and package filtering."""
 
     BINDINGS: ClassVar[list[BindingType]] = [
         Binding("j", "cursor_down", "Down", show=False),
         Binding("k", "cursor_up", "Up", show=False),
+        Binding("/", "app.filter_packages", "Filter"),
+        Binding("escape", "app.clear_filter", "Clear filter", show=False),
+    ]
+
+
+class FilterInput(Input):
+    """The package filter box — escape clears and closes it."""
+
+    BINDINGS: ClassVar[list[BindingType]] = [
+        Binding("escape", "app.clear_filter", "Clear", show=False),
     ]
 
 
