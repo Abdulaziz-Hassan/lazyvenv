@@ -89,6 +89,26 @@ class LazyVenvApp(App):
     #venvs:focus, #packages:focus {
         border: solid $accent;
     }
+
+    /* shared dialog chrome (create + delete dialogs) */
+    #buttons {
+        height: auto;
+        margin-top: 1;
+    }
+
+    #buttons Button {
+        margin-right: 2;
+    }
+
+    #cancel:focus {
+        text-style: bold;
+        background: $boost;
+    }
+
+    #cancel:hover {
+        background: $surface-lighten-2;
+        border-top: tall $surface-lighten-1;
+    }
     """
 
     BINDINGS: ClassVar[list[BindingType]] = [
@@ -156,7 +176,8 @@ class LazyVenvApp(App):
             self.query_one("#details", Label).update(
                 "No virtual environments found in the current directory."
             )
-            self._set_package_info("", hint=False)
+            self.packages = {}
+            self._apply_filter("")
 
     def _label_for(self, venv: Venv) -> str:
         """The list item text: status marker + name + version."""
@@ -229,20 +250,19 @@ class LazyVenvApp(App):
         else:
             table.border_title = f"Packages ({len(self.packages)})"
         table.clear()
+        for package in matches:
+            table.add_row(package.name, package.version, key=package.name)
         if matches:
-            for package in matches:
-                table.add_row(package.name, package.version, key=package.name)
             self._set_package_info(self._describe_package(matches[0]))
-        elif self.packages:
-            table.add_row(
-                Text(f"(no packages match '{query}')", style="dim italic"), ""
-            )
-            self._set_package_info("", hint=False)
+            return
+        if self.packages:
+            placeholder = f"(no packages match '{query}')"
+            info = ""
         else:
-            table.add_row(Text("(no packages installed)", style="dim italic"), "")
-            self._set_package_info(
-                "[dim]No packages installed in this venv.[/dim]", hint=False
-            )
+            placeholder = "(no packages installed)"
+            info = "[dim]No packages installed in this venv.[/dim]"
+        table.add_row(Text(placeholder, style="dim italic"), "")
+        self._set_package_info(info, hint=False)
 
     def on_data_table_row_highlighted(
         self, event: PackagesTable.RowHighlighted

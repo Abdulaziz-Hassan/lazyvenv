@@ -302,6 +302,20 @@ async def test_first_venv_is_preselected_on_launch():
         await wait_for(lambda: table.row_count == len(FAKE_PACKAGES))
 
 
+async def test_no_venvs_resets_all_panels(monkeypatch):
+    monkeypatch.setattr("lazyvenv.app.find_venvs", lambda directory=None: [])
+    app = LazyVenvApp()
+    async with app.run_test() as pilot:
+        await pilot.pause()
+        assert app.query_one("#venvs", VenvList).border_title == "Venvs (0)"
+        assert "No virtual environments found" in str(
+            app.query_one("#details", Label).render()
+        )
+        table = app.query_one("#packages", PackagesTable)
+        assert table.border_title == "Packages (0)"
+        assert table.row_count == 1  # the placeholder row
+
+
 async def test_empty_venv_shows_placeholder_in_both_panes(monkeypatch):
     monkeypatch.setattr("lazyvenv.app.list_packages", lambda venv, timeout=10: [])
     app = LazyVenvApp()

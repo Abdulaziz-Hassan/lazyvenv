@@ -90,25 +90,6 @@ class CreateVenvScreen(ModalScreen[tuple[str, Path] | None]):
     #dialog Label {
         margin-top: 1;
     }
-
-    #buttons {
-        height: auto;
-        margin-top: 1;
-    }
-
-    #buttons Button {
-        margin-right: 2;
-    }
-
-    #dialog #cancel:focus {
-        text-style: bold;
-        background: $boost;
-    }
-
-    #dialog #cancel:hover {
-        background: $surface-lighten-2;
-        border-top: tall $surface-lighten-1;
-    }
     """
 
     def __init__(self, interpreters: list[Interpreter]) -> None:
@@ -180,25 +161,6 @@ class ConfirmDeleteScreen(ModalScreen[bool]):
     #delete-dialog .venv-path {
         margin-top: 1;
         color: $text-muted;
-    }
-
-    #delete-dialog #buttons {
-        height: auto;
-        margin-top: 1;
-    }
-
-    #delete-dialog Button {
-        margin-right: 2;
-    }
-
-    #delete-dialog #cancel:focus {
-        text-style: bold;
-        background: $boost;
-    }
-
-    #delete-dialog #cancel:hover {
-        background: $surface-lighten-2;
-        border-top: tall $surface-lighten-1;
     }
     """
 
