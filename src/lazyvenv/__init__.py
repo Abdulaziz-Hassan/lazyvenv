@@ -1,7 +1,9 @@
 """lazyvenv - a simple TUI for managing Python virtual environments."""
 
+import argparse
 import os
 import sys
+from importlib.metadata import version
 from pathlib import Path
 
 from lazyvenv.activation import activation_command, init_script
@@ -9,20 +11,37 @@ from lazyvenv.venvs import find_venvs
 
 
 def main() -> None:
-    args = sys.argv[1:]
-    if args[:1] == ["activate"]:
-        _print_activation(args[1:])
-    elif args[:1] == ["init"]:
-        _print_init(args[1:])
+    parser = argparse.ArgumentParser(
+        prog="lazyvenv",
+        description="A simple TUI for managing Python virtual environments.",
+    )
+    parser.add_argument(
+        "--version",
+        "-V",
+        action="version",
+        version=f"%(prog)s {version('lazyvenv')}",
+    )
+    subparsers = parser.add_subparsers(dest="command")
+
+    activate = subparsers.add_parser(
+        "activate", help="print the activate command (used by the shell hook)"
+    )
+    activate.add_argument("name", help="name of the venv to activate")
+
+    init = subparsers.add_parser("init", help="print the shell wrapper function")
+    init.add_argument("shell", nargs="?", default="zsh", choices=["zsh", "bash"])
+
+    args = parser.parse_args()
+    if args.command == "activate":
+        _print_activation(args.name)
+    elif args.command == "init":
+        _print_init(args.shell)
     else:
         _run_tui()
 
 
-def _print_activation(args: list[str]) -> None:
+def _print_activation(name: str) -> None:
     """Print the ``source`` command for the named venv."""
-    if not args:
-        sys.exit("usage: lazyvenv activate <name>")
-    name = args[0]
     for venv in find_venvs():
         if venv.name == name:
             print(activation_command(venv))
@@ -30,13 +49,9 @@ def _print_activation(args: list[str]) -> None:
     sys.exit(f"lazyvenv: no venv named '{name}' in {Path.cwd()}")
 
 
-def _print_init(args: list[str]) -> None:
+def _print_init(shell: str) -> None:
     """Print the shell wrapper function (zsh/bash)."""
-    shell = args[0] if args else "zsh"
-    try:
-        print(init_script(shell))
-    except ValueError as error:
-        sys.exit(f"lazyvenv: {error}")
+    print(init_script(shell))
 
 
 def _run_tui() -> None:
