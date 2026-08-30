@@ -1,10 +1,4 @@
-"""Discovery of Python virtual environments.
-
-A directory is a virtual environment if (and only if) it contains a
-``pyvenv.cfg`` file at its root - that file is the canonical fingerprint
-defined by PEP 405. It also records which interpreter and which tool
-created the environment.
-"""
+"""Discovery of Python virtual environments."""
 
 from __future__ import annotations
 
