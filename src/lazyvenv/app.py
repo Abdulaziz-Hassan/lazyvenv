@@ -29,7 +29,7 @@ from lazyvenv.widgets import FilterInput, PackagesTable, VenvList
 NOTIFY_TIMEOUT = 2  # seconds
 
 
-class LazyVenvApp(App):
+class LazyVenvApp(App[None]):
     """A simple TUI for Python virtual environments."""
 
     TITLE = "lazyvenv"
@@ -201,7 +201,7 @@ class LazyVenvApp(App):
 
     def on_list_view_highlighted(self, event: VenvList.Highlighted) -> None:
         """Update the right-hand panes when the cursor moves in the list."""
-        if event.item is None:
+        if event.list_view.index is None:  # list is empty
             return
         venv = self.venvs[event.list_view.index]
         self.query_one("#details", Label).update(self._describe(venv))
@@ -271,7 +271,7 @@ class LazyVenvApp(App):
         if event.row_key is None:  # table is empty
             self._set_package_info("", hint=False)
             return
-        package = self.packages.get(event.row_key.value)
+        package = self.packages.get(event.row_key.value or "")
         if package is not None:
             self._set_package_info(self._describe_package(package))
 
@@ -279,7 +279,7 @@ class LazyVenvApp(App):
         """Open the full detail screen for the selected package."""
         if event.row_key is None:  # table is empty
             return
-        package = self.packages.get(event.row_key.value)
+        package = self.packages.get(event.row_key.value or "")
         if package is not None:
             self.push_screen(PackageScreen(package))
 

@@ -5,6 +5,7 @@ from __future__ import annotations
 import json
 import subprocess
 from dataclasses import dataclass
+from typing import Any
 
 from lazyvenv.venvs import Venv
 
@@ -100,7 +101,9 @@ def list_packages(venv: Venv, timeout: float = 10) -> list[Package]:
     return sorted(packages, key=lambda p: p.name.lower())
 
 
-def _classify_origin(installer: str, direct_url: dict | None) -> tuple[str, str]:
+def _classify_origin(
+    installer: str, direct_url: dict[str, Any] | None
+) -> tuple[str, str]:
     """Classify how a distribution was installed."""
     if direct_url is None:
         return ("registry", "") if installer else ("unknown", "")
