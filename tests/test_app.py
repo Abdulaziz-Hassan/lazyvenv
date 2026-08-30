@@ -2,6 +2,7 @@ import asyncio
 from pathlib import Path
 
 import pytest
+from textual.pilot import Pilot
 from textual.widgets import Button, DataTable, Label, ListView
 
 from lazyvenv.activation import activation_command
@@ -201,20 +202,24 @@ async def test_empty_table_events_do_not_crash():
         table = app.query_one("#packages", DataTable)
         await wait_for(lambda: table.row_count == len(FAKE_PACKAGES))
 
-        app.post_message(DataTable.RowHighlighted(table, -1, None))
-        app.post_message(DataTable.RowSelected(table, -1, None))
+        app.post_message(
+            DataTable.RowHighlighted(table, -1, None)  # type: ignore[arg-type]
+        )
+        app.post_message(
+            DataTable.RowSelected(table, -1, None)  # type: ignore[arg-type]
+        )
         await pilot.pause()
 
         assert str(app.query_one("#package-info", Label).render()) == ""
         assert len(app.screen_stack) == 1  # no detail screen opened
 
 
-async def highlight_index(pilot, venv_list, target: int) -> None:
+async def highlight_index(pilot: Pilot[None], venv_list: ListView, target: int) -> None:
     """Move the venv list cursor to *target*, regardless of start state."""
     await pilot.press("down")
     await pilot.pause()
-    while venv_list.index != target:
-        await pilot.press("up" if venv_list.index > target else "down")
+    while (index := venv_list.index) is not None and index != target:
+        await pilot.press("up" if index > target else "down")
         await pilot.pause()
 
 
@@ -384,14 +389,15 @@ async def test_details_hint_is_pinned_below_the_scrollable_body():
         assert hint.parent is not app.query_one("#package-info")
 
 
-async def open_filter(pilot, app) -> FilterInput:
+async def open_filter(pilot: Pilot[None], app: LazyVenvApp) -> FilterInput:
     """Open the package filter from the packages table and return the input."""
     table = app.query_one("#packages", PackagesTable)
     await wait_for(lambda: table.row_count == len(FAKE_PACKAGES))
     table.focus()
     await pilot.press("/")
     await pilot.pause()
-    return app.query_one("#package-filter", FilterInput)
+    filter_input: FilterInput = app.query_one("#package-filter", FilterInput)
+    return filter_input
 
 
 async def test_filter_narrows_the_packages_table():
@@ -524,7 +530,9 @@ async def test_delete_venv_removes_it_from_the_list(monkeypatch):
 
         await pilot.press("d")
         await wait_for(lambda: isinstance(app.screen, ConfirmDeleteScreen))
-        assert app.screen.venv == FAKE_VENVS[1]
+        screen = app.screen
+        assert isinstance(screen, ConfirmDeleteScreen)
+        assert screen.venv == FAKE_VENVS[1]
 
         await pilot.click("#delete")
         await wait_for(lambda: len(deleted) == 1)

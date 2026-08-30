@@ -15,7 +15,7 @@ from lazyvenv.venvs import Venv
 from lazyvenv.widgets import ScrollView
 
 
-class PackageScreen(Screen):
+class PackageScreen(Screen[None]):
     """Full-screen detail view for a single package."""
 
     BINDINGS: ClassVar[list[BindingType]] = [

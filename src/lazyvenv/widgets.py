@@ -18,7 +18,7 @@ class VenvList(ListView):
     ]
 
 
-class PackagesTable(DataTable):
+class PackagesTable(DataTable[object]):
     """The packages table — adds j/k navigation and package filtering."""
 
     BINDINGS: ClassVar[list[BindingType]] = [
