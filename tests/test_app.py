@@ -233,7 +233,7 @@ async def test_toggle_activation_marks_pending(monkeypatch):
 
         await pilot.press("a")
         await pilot.pause()
-        assert app.pending_command == "source /fake/.venv/bin/activate"
+        assert app.pending_command == "source '/fake/.venv/bin/activate'"
 
         await pilot.press("a")  # toggles back off
         await pilot.pause()
@@ -641,7 +641,7 @@ async def test_delete_clears_a_pending_activation_marker(monkeypatch):
 
         await pilot.press("a")  # mark 'env' for activation
         await pilot.pause()
-        assert app.pending_command == "source /fake/env/bin/activate"
+        assert app.pending_command == "source '/fake/env/bin/activate'"
 
         await pilot.press("d")
         await wait_for(lambda: isinstance(app.screen, ConfirmDeleteScreen))

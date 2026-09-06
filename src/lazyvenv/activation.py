@@ -5,7 +5,7 @@ DEACTIVATE_COMMAND = "deactivate"
 
 def activation_command(venv: Venv) -> str:
     """The shell command that activates *venv* in the current shell."""
-    return f"source {venv.path}/bin/activate"
+    return f"source '{venv.path}/bin/activate'"
 
 
 _INIT_SCRIPT = """\
