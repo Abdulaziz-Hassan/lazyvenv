@@ -448,7 +448,7 @@ class LazyVenvApp(App[None]):
         lines = [
             (
                 f"[bold]{package.name}[/bold] {package.version}  "
-                f"[dim]{package.origin} · {package.installer or 'unknown installer'}[/dim]"
+                f"[dim]{package.origin} · {package.installer or 'unknown installer'}[/dim]"  # noqa: E501
             ),
             package.summary,
             "",

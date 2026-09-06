@@ -39,7 +39,7 @@ def list_interpreters() -> list[Interpreter]:
 
 
 def _dedupe(interpreters: list[Interpreter]) -> list[Interpreter]:
-    """Drop entries that are symlinks to the same binary, keeping the shortest path for display."""
+    """Drop entries that are symlinks to the same binary, keeping the shortest path for display."""  # noqa: E501
     by_resolved: dict[Path, Interpreter] = {}
     for interpreter in interpreters:
         key = interpreter.path.resolve()
