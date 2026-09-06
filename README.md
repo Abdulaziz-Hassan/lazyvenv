@@ -65,11 +65,10 @@ lazyvenv
 ### CLI
 
 ```
-lazyvenv                  Launch the TUI
-lazyvenv activate <name>  Print the activate command (used by the shell hook)
-lazyvenv init [shell]     Print the shell wrapper (zsh or bash)
-lazyvenv --version        Print the version
-lazyvenv --help           Show help
+lazyvenv               Launch the TUI
+lazyvenv init [shell]  Print the shell wrapper (zsh or bash)
+lazyvenv --version     Print the version
+lazyvenv --help        Show help
 ```
 
 ## Development
