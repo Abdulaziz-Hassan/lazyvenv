@@ -3,6 +3,8 @@ name = "lazyvenv"
 version = "0.1.0"
 description = "A TUI for managing Python virtual environments"
 readme = "README.md"
+license = "MIT"
+license-files = ["LICENSE"]
 authors = [
     { name = "Abdulaziz-Hassan", email = "abdulazizhza@gmail.com" }
 ]
