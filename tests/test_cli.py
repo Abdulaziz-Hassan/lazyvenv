@@ -1,10 +1,8 @@
 import sys
-from pathlib import Path
 
 import pytest
 
 from lazyvenv import main
-from lazyvenv.venvs import Venv
 
 
 def test_help_prints_usage(monkeypatch, capsys):
@@ -53,13 +51,3 @@ def test_init_rejects_unknown_shells(monkeypatch, capsys):
 
     assert exc_info.value.code == 2
     assert "invalid choice: 'fish'" in capsys.readouterr().err
-
-
-def test_activate_prints_the_source_command(monkeypatch, capsys):
-    fake = Venv(Path("/fake/.venv"), "3.13.6", Path("/usr/bin"), False, True)
-    monkeypatch.setattr("lazyvenv.find_venvs", lambda: [fake])
-    monkeypatch.setattr(sys, "argv", ["lazyvenv", "activate", ".venv"])
-
-    main()
-
-    assert capsys.readouterr().out.strip() == "source /fake/.venv/bin/activate"

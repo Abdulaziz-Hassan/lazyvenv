@@ -30,7 +30,7 @@ NOTIFY_TIMEOUT = 2  # seconds
 
 
 class LazyVenvApp(App[None]):
-    """A simple TUI for Python virtual environments."""
+    """A TUI for managing Python virtual environments."""
 
     TITLE = "lazyvenv"
 
@@ -448,7 +448,7 @@ class LazyVenvApp(App[None]):
         lines = [
             (
                 f"[bold]{package.name}[/bold] {package.version}  "
-                f"[dim]{package.origin} · {package.installer or 'unknown installer'}[/dim]"
+                f"[dim]{package.origin} · {package.installer or 'unknown installer'}[/dim]"  # noqa: E501
             ),
             package.summary,
             "",
