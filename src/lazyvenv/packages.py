@@ -1,4 +1,10 @@
-"""Read the packages installed in a virtual environment."""
+"""Read the packages installed in a virtual environment.
+
+Package metadata can only be read by the venv's *own* interpreter
+(``importlib.metadata`` sees the environment of whichever Python runs it),
+so we run a small probe script inside the venv. The probe is deliberately
+dumb: it dumps raw metadata as JSON, and all interpretation happens here.
+"""
 
 from __future__ import annotations
 
@@ -13,30 +19,18 @@ _INSPECT_SCRIPT = """
 import importlib.metadata as md
 import json
 
-packages = []
-for dist in md.distributions():
-    meta = dist.metadata
-    home_page = meta.get("Home-page") or ""
-    if not home_page:
-        project_urls = meta.get_all("Project-URL") or []
-        if project_urls:
-            home_page = project_urls[0].split(",")[-1].strip()
-    raw_url = dist.read_text("direct_url.json")
-    packages.append(
-        {
-            "name": dist.name,
-            "version": dist.version,
-            "summary": meta.get("Summary") or "",
-            "license": meta.get("License-Expression") or meta.get("License") or "",
-            "author": (
-                meta.get("Author") or meta.get("Maintainer") or meta.get("Author-email") or ""
-            ),
-            "home_page": home_page,
-            "requires": dist.requires or [],
-            "installer": (dist.read_text("INSTALLER") or "").strip() or None,
-            "direct_url": json.loads(raw_url) if raw_url else None,
-        }
-    )
+packages = [
+    {
+        "name": dist.name,
+        "version": dist.version,
+        "metadata": dict(dist.metadata),
+        "project_urls": dist.metadata.get_all("Project-URL") or [],
+        "requires": dist.requires or [],
+        "installer": (dist.read_text("INSTALLER") or "").strip() or None,
+        "direct_url": json.loads(raw) if (raw := dist.read_text("direct_url.json")) else None,
+    }
+    for dist in md.distributions()
+]
 print(json.dumps(packages))
 """
 
@@ -79,26 +73,39 @@ def list_packages(venv: Venv, timeout: float = 10) -> list[Package]:
     except (subprocess.TimeoutExpired, json.JSONDecodeError) as error:
         raise PackageInspectionError(str(error)) from error
 
-    packages = []
-    for item in raw:
-        origin, source_url = _classify_origin(
-            item["installer"] or "", item["direct_url"]
-        )
-        packages.append(
-            Package(
-                name=item["name"],
-                version=item["version"],
-                summary=item["summary"],
-                license=item["license"],
-                author=item["author"],
-                home_page=item["home_page"],
-                requires=tuple(item["requires"]),
-                installer=item["installer"] or "",
-                origin=origin,
-                source_url=source_url,
-            )
-        )
-    return sorted(packages, key=lambda p: p.name.lower())
+    return sorted((_to_package(item) for item in raw), key=lambda p: p.name.lower())
+
+
+def _to_package(item: dict[str, Any]) -> Package:
+    """Turn one raw probe result into a :class:`Package`."""
+    metadata: dict[str, str] = item["metadata"]
+    installer = item["installer"] or ""
+    origin, source_url = _classify_origin(installer, item["direct_url"])
+    return Package(
+        name=item["name"],
+        version=item["version"],
+        summary=metadata.get("Summary", ""),
+        license=metadata.get("License-Expression") or metadata.get("License", ""),
+        author=(
+            metadata.get("Author")
+            or metadata.get("Maintainer")
+            or metadata.get("Author-email", "")
+        ),
+        home_page=_home_page(metadata, item["project_urls"]),
+        requires=tuple(item["requires"]),
+        installer=installer,
+        origin=origin,
+        source_url=source_url,
+    )
+
+
+def _home_page(metadata: dict[str, str], project_urls: list[str]) -> str:
+    """The package's homepage: ``Home-page``, else the first ``Project-URL``."""
+    if home_page := metadata.get("Home-page"):
+        return home_page
+    if project_urls:
+        return project_urls[0].split(",")[-1].strip()  # "Docs, https://…" → URL
+    return ""
 
 
 def _classify_origin(
