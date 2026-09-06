@@ -95,6 +95,10 @@ For local development of the global command (e.g. to test the shell hook):
 uv tool install --editable .
 ```
 
+## Changelog
+
+See [CHANGELOG.md](CHANGELOG.md).
+
 ## License
 
 [MIT](LICENSE)
