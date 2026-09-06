@@ -4,8 +4,13 @@ DEACTIVATE_COMMAND = "deactivate"
 
 
 def activation_command(venv: Venv) -> str:
-    """The shell command that activates *venv* in the current shell."""
-    return f"source {venv.path}/bin/activate"
+    """The shell command that activates *venv* in the current shell.
+
+    The path is single-quoted: the shell hook ``eval``s this string, so a
+    venv directory name containing spaces or shell metacharacters must not
+    be able to inject commands.
+    """
+    return f"source '{venv.path}/bin/activate'"
 
 
 _INIT_SCRIPT = """\
