@@ -1,10 +1,4 @@
-"""Read the packages installed in a virtual environment.
-
-Package metadata can only be read by the venv's *own* interpreter
-(``importlib.metadata`` sees the environment of whichever Python runs it),
-so we run a small probe script inside the venv. The probe is deliberately
-dumb: it dumps raw metadata as JSON, and all interpretation happens here.
-"""
+"""Read the packages installed in a virtual environment."""
 
 from __future__ import annotations
 
