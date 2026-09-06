@@ -1,4 +1,4 @@
-"""lazyvenv - a simple TUI for managing Python virtual environments."""
+"""lazyvenv - a TUI for managing Python virtual environments."""
 
 import argparse
 import os
@@ -13,7 +13,7 @@ from lazyvenv.venvs import find_venvs
 def main() -> None:
     parser = argparse.ArgumentParser(
         prog="lazyvenv",
-        description="A simple TUI for managing Python virtual environments.",
+        description="A TUI for managing Python virtual environments.",
     )
     parser.add_argument(
         "--version",

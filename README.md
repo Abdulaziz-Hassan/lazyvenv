@@ -1,8 +1,6 @@
 # lazyvenv
 
-A [lazygit](https://github.com/jesseduffield/lazygit)-style TUI for managing
-Python virtual environments, built with [Textual](https://textual.textualize.io/)
-and [uv](https://docs.astral.sh/uv/).
+A TUI for managing Python virtual environments.
 
 ![screenshot](docs/screenshot.png)
 

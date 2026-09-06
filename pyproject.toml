@@ -1,12 +1,16 @@
 [project]
 name = "lazyvenv"
 version = "0.1.0"
-description = "A simple TUI for managing Python virtual environments"
+description = "A TUI for managing Python virtual environments"
 readme = "README.md"
 authors = [
     { name = "Abdulaziz-Hassan", email = "abdulazizhza@gmail.com" }
 ]
 requires-python = ">=3.13"
+classifiers = [
+    "Programming Language :: Python :: 3.13",
+    "Programming Language :: Python :: 3.14",
+]
 dependencies = [
     "rich>=15.0.0",
     "textual>=8.2.8",

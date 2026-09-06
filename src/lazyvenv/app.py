@@ -30,7 +30,7 @@ NOTIFY_TIMEOUT = 2  # seconds
 
 
 class LazyVenvApp(App[None]):
-    """A simple TUI for Python virtual environments."""
+    """A TUI for managing Python virtual environments."""
 
     TITLE = "lazyvenv"
 
