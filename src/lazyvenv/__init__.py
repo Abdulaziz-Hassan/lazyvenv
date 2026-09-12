@@ -22,9 +22,7 @@ def main() -> None:
     subparsers = parser.add_subparsers(dest="command")
 
     init = subparsers.add_parser("init", help="print the shell wrapper function")
-    init.add_argument(
-        "shell", nargs="?", default="zsh", choices=["zsh", "bash", "sh"]
-    )
+    init.add_argument("shell", nargs="?", default="zsh", choices=["zsh", "bash", "sh"])
 
     args = parser.parse_args()
     if args.command == "init":
