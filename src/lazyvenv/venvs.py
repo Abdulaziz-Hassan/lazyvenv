@@ -37,6 +37,11 @@ class Venv:
         return active is not None and Path(active) == self.path
 
     @property
+    def is_broken(self) -> bool:
+        """Whether the venv exists but its interpreter is missing."""
+        return self.path.is_dir() and not self.python.exists()
+
+    @property
     def display_path(self) -> str:
         """The venv path with the home directory collapsed to ~."""
         return collapse_home(self.path)

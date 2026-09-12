@@ -181,7 +181,9 @@ class LazyVenvApp(App[None]):
 
     def _label_for(self, venv: Venv) -> str:
         """The list item text: status marker + name + version."""
-        if venv.is_active:
+        if venv.is_broken:
+            marker = "[red]✗[/red] "
+        elif venv.is_active:
             marker = (
                 "[yellow]◆[/yellow] "
                 if self.pending_command == DEACTIVATE_COMMAND
@@ -220,14 +222,24 @@ class LazyVenvApp(App[None]):
     async def load_packages(self, venv: Venv) -> None:
         """Fetch the venv's packages in the background and fill the table."""
         table = self.query_one("#packages", PackagesTable)
-        table.loading = True
         self._set_package_info("", hint=False)
         self.packages = {}
+        if venv.is_broken:
+            table.border_title = "Packages"
+            self._show_packages_message(
+                "(broken venv — interpreter missing)",
+                "[dim]This venv has no interpreter; its packages can't be read.[/dim]",
+            )
+            return
+        table.loading = True
         try:
             packages = await asyncio.to_thread(list_packages, venv)
         except PackageInspectionError as error:
-            table.clear()
-            self.notify(f"Could not read packages: {error}", severity="error")
+            table.border_title = "Packages"
+            self._show_packages_message(
+                "(could not read packages)",
+                f"[dim]{error}[/dim]",
+            )
             return
         finally:
             table.loading = False
@@ -256,12 +268,18 @@ class LazyVenvApp(App[None]):
             self._set_package_info(self._describe_package(matches[0]))
             return
         if self.packages:
-            placeholder = f"(no packages match '{query}')"
-            info = ""
+            self._show_packages_message(f"(no packages match '{query}')", "")
         else:
-            placeholder = "(no packages installed)"
-            info = "[dim]No packages installed in this venv.[/dim]"
-        table.add_row(Text(placeholder, style="dim italic"), "")
+            self._show_packages_message(
+                "(no packages installed)",
+                "[dim]No packages installed in this venv.[/dim]",
+            )
+
+    def _show_packages_message(self, row: str, info: str) -> None:
+        """Replace the package table with a single dim placeholder row."""
+        table = self.query_one("#packages", PackagesTable)
+        table.clear()
+        table.add_row(Text(row, style="dim italic"), "")
         self._set_package_info(info, hint=False)
 
     def on_data_table_row_highlighted(
@@ -296,6 +314,12 @@ class LazyVenvApp(App[None]):
         if venv_list.index is None:
             return
         venv = self.venvs[venv_list.index]
+        if venv.is_broken:
+            self.notify(
+                f"Cannot (de)activate '{venv.name}': its interpreter is missing",
+                severity="warning",
+            )
+            return
         if venv.is_active:
             if self.pending_command == DEACTIVATE_COMMAND:
                 self.pending_command = None
@@ -428,6 +452,9 @@ class LazyVenvApp(App[None]):
         creator = "uv" if venv.created_by_uv else "python -m venv"
         active = "yes" if venv.is_active else "no"
         size_text = human_size(size) if size else "…"
+        broken = ""
+        if venv.is_broken:
+            broken = "\n[red]Interpreter missing — this venv is broken.[/red]"
         return (
             f"[bold]{venv.name}[/bold]\n\n"
             f"Path:    {venv.display_path}\n"
@@ -435,7 +462,7 @@ class LazyVenvApp(App[None]):
             f"Python:  {venv.python_version}\n"
             f"Base:    {collapse_home(venv.home)}\n"
             f"Created: {creator}\n"
-            f"Active:  {active}"
+            f"Active:  {active}{broken}"
         )
 
     @staticmethod
