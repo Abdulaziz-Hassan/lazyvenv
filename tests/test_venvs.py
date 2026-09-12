@@ -88,6 +88,16 @@ def test_find_venvs_skips_unreadable_directories(tmp_path):
     assert [v.name for v in found] == [".venv"]
 
 
+def test_is_broken_when_the_interpreter_is_missing(tmp_path):
+    venv_dir = make_venv(tmp_path, ".venv")
+    (found,) = find_venvs(tmp_path)
+    assert found.is_broken
+
+    (venv_dir / "bin").mkdir()
+    (venv_dir / "bin" / "python").write_text("")
+    assert not found.is_broken
+
+
 def test_collapse_home():
     assert collapse_home(Path.home() / "proj" / ".venv") == "~/proj/.venv"
     assert collapse_home(Path("/usr/bin/python3")) == "/usr/bin/python3"

@@ -321,6 +321,32 @@ async def test_no_venvs_resets_all_panels(monkeypatch):
         assert table.row_count == 1  # the placeholder row
 
 
+async def test_broken_venv_shows_a_message_instead_of_an_error(monkeypatch, tmp_path):
+    broken_dir = tmp_path / "ghost"
+    broken_dir.mkdir()  # dir exists, but no bin/python inside
+
+    def explode(venv, timeout=10):
+        raise AssertionError("list_packages must not run for a broken venv")
+
+    monkeypatch.setattr(
+        "lazyvenv.app.find_venvs",
+        lambda directory=None: [
+            Venv(broken_dir, "3.11.0", Path("/usr/bin"), False, False)
+        ],
+    )
+    monkeypatch.setattr("lazyvenv.app.list_packages", explode)
+    app = LazyVenvApp()
+    async with app.run_test() as pilot:
+        await pilot.pause()
+        assert "[red]✗[/red]" in app._label_for(app.venvs[0])
+        assert "Interpreter missing" in str(app.query_one("#details", Label).render())
+
+        table = app.query_one("#packages", PackagesTable)
+        assert table.border_title == "Packages"
+        info = str(app.query_one("#package-info", Label).render())
+        assert "no interpreter" in info
+
+
 async def test_empty_venv_shows_placeholder_in_both_panes(monkeypatch):
     monkeypatch.setattr("lazyvenv.app.list_packages", lambda venv, timeout=10: [])
     app = LazyVenvApp()
