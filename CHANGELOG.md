@@ -4,6 +4,16 @@ All notable changes to this project are documented here, following
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/). This project uses
 [Semantic Versioning](https://semver.org/).
 
+## [0.2.0] - 2026-09-12
+
+### Added
+
+- `python -m lazyvenv` works as an alternative to the `lazyvenv` command
+
+### Changed
+
+- Installing with pipx is documented as an alternative to `uv tool install`
+
 ## [0.1.1] - 2026-09-12
 
 ### Fixed
@@ -36,5 +46,6 @@ First release.
 - Vim-style navigation (`j`/`k`/`h`/`l`)
 - CLI: `lazyvenv`, `lazyvenv init [shell]`, `--help`, `--version`
 
+[0.2.0]: https://github.com/Abdulaziz-Hassan/lazyvenv/releases/tag/v0.2.0
 [0.1.1]: https://github.com/Abdulaziz-Hassan/lazyvenv/releases/tag/v0.1.1
 [0.1.0]: https://github.com/Abdulaziz-Hassan/lazyvenv/releases/tag/v0.1.0
