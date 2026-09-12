@@ -1,8 +1,8 @@
 # lazyvenv
 
-[![PyPI](https://img.shields.io/pypi/v/lazyvenv)](https://pypi.org/project/lazyvenv/)
-[![Python](https://img.shields.io/pypi/pyversions/lazyvenv)](https://pypi.org/project/lazyvenv/)
-[![CI](https://github.com/Abdulaziz-Hassan/lazyvenv/actions/workflows/ci.yml/badge.svg)](https://github.com/Abdulaziz-Hassan/lazyvenv/actions/workflows/ci.yml)
+[![PyPI](https://img.shields.io/pypi/v/lazyvenv?cacheSeconds=3600)](https://pypi.org/project/lazyvenv/)
+[![Python](https://img.shields.io/pypi/pyversions/lazyvenv?cacheSeconds=3600)](https://pypi.org/project/lazyvenv/)
+[![CI](https://github.com/Abdulaziz-Hassan/lazyvenv/actions/workflows/ci.yml/badge.svg?branch=main)](https://github.com/Abdulaziz-Hassan/lazyvenv/actions/workflows/ci.yml)
 [![License: MIT](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
 
 A TUI for managing Python virtual environments.
