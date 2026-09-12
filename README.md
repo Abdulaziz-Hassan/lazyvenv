@@ -7,7 +7,7 @@
 
 A TUI for managing Python virtual environments.
 
-![screenshot](docs/screenshot.png)
+![screenshot](https://raw.githubusercontent.com/Abdulaziz-Hassan/lazyvenv/main/docs/screenshot.png)
 
 lazyvenv shows the virtual environments in the current directory, lets you
 inspect their installed packages (including origin, size, and metadata), and
