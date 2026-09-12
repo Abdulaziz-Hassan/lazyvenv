@@ -71,7 +71,7 @@ lazyvenv
 
 ```
 lazyvenv               Launch the TUI
-lazyvenv init [shell]  Print the shell wrapper (zsh or bash)
+lazyvenv init [shell]  Print the shell wrapper (zsh, bash, or sh)
 lazyvenv --version     Print the version
 lazyvenv --help        Show help
 ```
