@@ -29,6 +29,15 @@ uv tool install lazyvenv
 This installs the `lazyvenv` command globally, outside any project venv —
 which is required for activation to work reliably.
 
+Any isolated installer works, e.g. [pipx](https://pipx.pypa.io/):
+
+```bash
+pipx install lazyvenv
+```
+
+Python 3.13 or newer is required, and [uv](https://docs.astral.sh/uv/) is
+still needed on your PATH to create venvs.
+
 ## Shell integration (for activation)
 
 Pressing `a` inside the app marks a venv to be (de)activated, and the change
