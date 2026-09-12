@@ -18,7 +18,7 @@ driven interface.
 
 - Python 3.13 or newer
 - [uv](https://docs.astral.sh/uv/) — used to list interpreters and create venvs
-- zsh or bash (for the activation shell hook)
+- zsh, bash, or sh (for the activation shell hook)
 
 ## Install
 

@@ -46,6 +46,10 @@ def test_init_script_rejects_unknown_shells():
         init_script("fish")
 
 
+def test_init_script_accepts_posix_sh():
+    assert "lazyvenv()" in init_script("sh")
+
+
 def test_init_script_mktemp_template_is_valid():
     script = init_script("zsh")
     (mktemp_line,) = [line for line in script.splitlines() if "mktemp" in line]

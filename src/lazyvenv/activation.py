@@ -23,6 +23,6 @@ lazyvenv() {
 
 def init_script(shell: str) -> str:
     """The wrapper function for *shell* for ``eval "$(lazyvenv init zsh)"``."""
-    if shell not in {"zsh", "bash"}:
-        raise ValueError(f"unsupported shell: {shell!r} (supported: zsh, bash)")
+    if shell not in {"zsh", "bash", "sh"}:
+        raise ValueError(f"unsupported shell: {shell!r} (supported: zsh, bash, sh)")
     return _INIT_SCRIPT
