@@ -15,10 +15,6 @@ All notable changes to this project are documented here, following
   site-packages) now show the reason in the packages pane instead of an
   error toast
 
-### Changed
-
-- `lazyvenv init` also accepts `sh`
-
 ## [0.1.0] - 2026-09-06
 
 First release.
@@ -35,7 +31,7 @@ First release.
 - Create new venvs from any uv-managed interpreter
 - Delete venvs with a confirmation dialog
 - Activate/deactivate venvs in the parent shell via the shell hook
-  (`eval "$(lazyvenv init zsh)"`)
+  (`eval "$(lazyvenv init zsh)"`, for zsh, bash, or sh)
 - Filter packages by name with `/`
 - Vim-style navigation (`j`/`k`/`h`/`l`)
 - CLI: `lazyvenv`, `lazyvenv init [shell]`, `--help`, `--version`
