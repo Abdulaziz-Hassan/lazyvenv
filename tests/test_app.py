@@ -8,7 +8,7 @@ from textual.widgets import Button, DataTable, Label, ListView
 from lazyvenv.activation import activation_command
 from lazyvenv.app import LazyVenvApp
 from lazyvenv.create import Interpreter
-from lazyvenv.packages import Package
+from lazyvenv.packages import Package, PackageInspectionError
 from lazyvenv.screens import ConfirmDeleteScreen, CreateVenvScreen, PackageScreen
 from lazyvenv.venvs import Venv
 from lazyvenv.widgets import FilterInput, PackagesTable, VenvList
@@ -345,6 +345,41 @@ async def test_broken_venv_shows_a_message_instead_of_an_error(monkeypatch, tmp_
         assert table.border_title == "Packages"
         info = str(app.query_one("#package-info", Label).render())
         assert "no interpreter" in info
+
+
+async def test_package_read_failure_shows_a_message_not_a_crash(monkeypatch):
+    def fail(venv, timeout=10):
+        raise PackageInspectionError("interpreter exploded")
+
+    monkeypatch.setattr("lazyvenv.app.list_packages", fail)
+    app = LazyVenvApp()
+    async with app.run_test() as pilot:
+        await pilot.pause()
+        assert app.query_one("#packages", PackagesTable).border_title == "Packages"
+        info = str(app.query_one("#package-info", Label).render())
+        assert "interpreter exploded" in info
+
+
+async def test_broken_venv_cannot_be_activated(monkeypatch, tmp_path):
+    monkeypatch.setenv("LAZYVENV_SHELL_CMD_FILE", "/tmp/fake-cmd-file")
+    broken_dir = tmp_path / "ghost"
+    broken_dir.mkdir()  # dir exists, but no bin/python inside
+    monkeypatch.setattr(
+        "lazyvenv.app.find_venvs",
+        lambda directory=None: [
+            Venv(broken_dir, "3.11.0", Path("/usr/bin"), False, False)
+        ],
+    )
+    app = LazyVenvApp()
+    async with app.run_test() as pilot:
+        await pilot.pause()
+        venv_list = app.query_one("#venvs", VenvList)
+        await highlight_index(pilot, venv_list, 0)
+
+        await pilot.press("a")
+        await pilot.pause()
+
+        assert app.pending_command is None
 
 
 async def test_empty_venv_shows_placeholder_in_both_panes(monkeypatch):

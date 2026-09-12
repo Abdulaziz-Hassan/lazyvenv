@@ -235,8 +235,11 @@ class LazyVenvApp(App[None]):
         try:
             packages = await asyncio.to_thread(list_packages, venv)
         except PackageInspectionError as error:
-            table.clear()
-            self.notify(f"Could not read packages: {error}", severity="error")
+            table.border_title = "Packages"
+            self._show_packages_message(
+                "(could not read packages)",
+                f"[dim]{error}[/dim]",
+            )
             return
         finally:
             table.loading = False
@@ -311,6 +314,12 @@ class LazyVenvApp(App[None]):
         if venv_list.index is None:
             return
         venv = self.venvs[venv_list.index]
+        if venv.is_broken:
+            self.notify(
+                f"Cannot (de)activate '{venv.name}': its interpreter is missing",
+                severity="warning",
+            )
+            return
         if venv.is_active:
             if self.pending_command == DEACTIVATE_COMMAND:
                 self.pending_command = None
