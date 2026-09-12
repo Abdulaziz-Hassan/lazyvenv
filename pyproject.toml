@@ -9,7 +9,9 @@ authors = [
     { name = "Abdulaziz-Hassan", email = "abdulazizhza@gmail.com" }
 ]
 requires-python = ">=3.13"
+keywords = ["virtualenv", "tui"]
 classifiers = [
+    "Operating System :: POSIX",
     "Programming Language :: Python :: 3.13",
     "Programming Language :: Python :: 3.14",
 ]
@@ -17,6 +19,10 @@ dependencies = [
     "rich>=15.0.0",
     "textual>=8.2.8",
 ]
+
+[project.urls]
+Homepage = "https://github.com/Abdulaziz-Hassan/lazyvenv"
+Issues = "https://github.com/Abdulaziz-Hassan/lazyvenv/issues"
 
 [project.scripts]
 lazyvenv = "lazyvenv:main"
